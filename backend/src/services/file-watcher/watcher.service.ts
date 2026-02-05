@@ -5,7 +5,7 @@ import config from '../../config/app.config';
 import { indexingService } from '../indexing/indexing.service';
 import { wsManager } from '../../utils/ws-manager';
 import { documentProcessor } from '../document-processor/document-processor.service';
-import { chromaDBService } from '../vectorstore/chromadb.service';
+import { inMemoryVectorStore } from '../vectorstore/in-memory-store';
 
 /**
  * 파일 Watcher 서비스
@@ -124,7 +124,7 @@ export class WatcherService {
     }
 
     // ChromaDB에서 문서 삭제
-    chromaDBService.deleteByFilePath(filePath).catch(console.error);
+    inMemoryVectorStore.deleteByFilePath(filePath).catch(console.error);
 
     wsManager.broadcastFileChanged(filePath, 'deleted');
   }

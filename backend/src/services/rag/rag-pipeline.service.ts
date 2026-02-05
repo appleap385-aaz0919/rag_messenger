@@ -1,6 +1,6 @@
 import { llmService } from '../llm/llm.factory';
 import { embeddingsService } from '../embeddings/embeddings.service';
-import { chromaDBService } from '../vectorstore/chromadb.service';
+import { inMemoryVectorStore } from '../vectorstore/in-memory-store';
 import type { ChatResponse, DocumentSource } from '../../types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -26,7 +26,7 @@ D:\\...\\경로\\파일명.ext`;
    */
   async query(question: string, _conversationId?: string): Promise<ChatResponse> {
     // 0. 인덱스 상태 확인
-    const documentCount = await chromaDBService.count();
+    const documentCount = await inMemoryVectorStore.count();
     if (documentCount === 0) {
       return {
         messageId: uuidv4(),
@@ -40,7 +40,7 @@ D:\\...\\경로\\파일명.ext`;
     const { embedding: questionEmbedding } = await embeddingsService.embedText(question);
 
     // 2. 관련 문서 검색
-    const searchResults = await chromaDBService.search(questionEmbedding, 5);
+    const searchResults = await inMemoryVectorStore.search(questionEmbedding, 5);
 
     // 3. 컨텍스트 구성
     const context = this.buildContext(searchResults);
@@ -135,7 +135,7 @@ ${context}
     const { embedding: questionEmbedding } = await embeddingsService.embedText(question);
 
     // 2. 관련 문서 검색
-    const searchResults = await chromaDBService.search(questionEmbedding, 5);
+    const searchResults = await inMemoryVectorStore.search(questionEmbedding, 5);
 
     // 3. 컨텍스트 구성
     const context = this.buildContext(searchResults);

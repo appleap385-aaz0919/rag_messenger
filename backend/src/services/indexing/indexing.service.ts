@@ -1,5 +1,5 @@
 import { documentProcessor } from '../document-processor/document-processor.service';
-import { chromaDBService } from '../vectorstore/chromadb.service';
+import { inMemoryVectorStore } from '../vectorstore/in-memory-store';
 import { wsManager } from '../../utils/ws-manager';
 import type { IndexingStatus } from '../../types';
 
@@ -47,8 +47,8 @@ export class IndexingService {
         return;
       }
 
-      // 2. ChromaDB 초기화
-      await chromaDBService.initialize();
+      // 2. 저장소 초기화
+      await inMemoryVectorStore.initialize();
 
       // 3. 파일 배치 처리
       const batchSize = 10;
@@ -96,7 +96,7 @@ export class IndexingService {
 
         // ChromaDB에 저장
         if (chunks.length > 0) {
-          await chromaDBService.addChunks(chunks);
+          await inMemoryVectorStore.addChunks(chunks);
         }
       } catch (error) {
         console.error(`파일 처리 오류 (${file.path}):`, error);
@@ -130,14 +130,14 @@ export class IndexingService {
   async reindexFile(filePath: string): Promise<void> {
     try {
       // 기존 문서 삭제
-      await chromaDBService.deleteByFilePath(filePath);
+      await inMemoryVectorStore.deleteByFilePath(filePath);
 
       // 파일 재처리
       const chunks = await documentProcessor.processFile(filePath);
 
       // ChromaDB에 저장
       if (chunks.length > 0) {
-        await chromaDBService.addChunks(chunks);
+        await inMemoryVectorStore.addChunks(chunks);
       }
 
       wsManager.broadcastFileChanged(filePath, 'modified');
@@ -151,7 +151,7 @@ export class IndexingService {
    * 모든 인덱스 삭제
    */
   async clearIndex(): Promise<void> {
-    await chromaDBService.clear();
+    await inMemoryVectorStore.clear();
     this.status = {
       isIndexing: false,
       progress: 0,
