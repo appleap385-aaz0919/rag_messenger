@@ -1,29 +1,21 @@
 import { ChromaClient, Collection } from 'chromadb';
 import config from '../../config/app.config';
 import type { DocumentChunk, VectorSearchResult } from '../../types';
-import path from 'path';
-import fs from 'fs';
 
 /**
  * ChromaDB 벡터 저장소 서비스
+ * 인메모리 모드 사용 (서버 재시작 시 데이터 초기화됨)
  */
 export class ChromaDBService {
   private client: ChromaClient;
   private collection: Collection | null = null;
   private collectionName: string;
-  private dataPath: string;
+  private documents: Map<string, { id: string; content: string; embedding: number[]; metadata: Record<string, any> }> = new Map();
 
   constructor() {
-    // 절대 경로로 변환
-    this.dataPath = path.resolve(process.cwd(), config.vectorStore.path);
-
-    // 데이터 디렉토리 생성
-    if (!fs.existsSync(this.dataPath)) {
-      fs.mkdirSync(this.dataPath, { recursive: true });
-    }
-
+    // 인메모리 모드로 ChromaDB 클라이언트 초기화
     this.client = new ChromaClient({
-      path: this.dataPath,
+      path: undefined, // 인메모리 모드
     });
     this.collectionName = config.vectorStore.collectionName;
   }
@@ -64,6 +56,21 @@ export class ChromaDBService {
       chunkIndex: c.metadata.chunkIndex,
       fileType: c.metadata.fileType,
     }));
+
+    // 로컬 메모리에도 저장
+    for (const chunk of chunks) {
+      this.documents.set(chunk.id, {
+        id: chunk.id,
+        content: chunk.content,
+        embedding: chunk.embedding || [],
+        metadata: {
+          filePath: chunk.metadata.filePath,
+          fileName: chunk.metadata.fileName,
+          chunkIndex: chunk.metadata.chunkIndex,
+          fileType: chunk.metadata.fileType,
+        },
+      });
+    }
 
     await this.collection!.add({
       ids,
@@ -123,6 +130,7 @@ export class ChromaDBService {
     await this.collection!.delete({
       where: {},
     });
+    this.documents.clear();
   }
 
   /**
@@ -148,6 +156,13 @@ export class ChromaDBService {
     await this.collection!.delete({
       where: { filePath },
     });
+
+    // 로컬 메모리에서도 삭제
+    for (const [id, doc] of this.documents.entries()) {
+      if (doc.metadata.filePath === filePath) {
+        this.documents.delete(id);
+      }
+    }
   }
 }
 

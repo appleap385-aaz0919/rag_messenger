@@ -14,7 +14,8 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nFix: UI 개선 및 에러 처리 수정\n\n## 수정 사항\n\n### 프론트엔드\n- Sidebar: 하드코딩된 최근 대화 목록 제거\n- Sidebar: 새 대화 버튼 기능 구현 \\(clearMessages 연결\\)\n- Sidebar: 재학습 버튼 API 연결\n- MainChat: 대화 제목 동적으로 변경 \\(첫 메시지 기반\\)\n- RightPanel: 열릴 때 폴더 목록 자동 로드\n- ChatInput: 에러 메시지 개선 \\(백엔드 에러 표시\\)\n\n### 백엔드\n- EmbeddingsService: Ollama 연결 실패 시 명확한 에러 메시지\n- OllamaService: LLM 연결 실패 시 명확한 에러 메시지\n- RAGPipelineService: 문서 미인덱싱 상태 확인 후 안내 메시지\n\n### 기타\n- 빌드 경고 수정 \\(사용하지 않는 변수 제거\\)\nEOF\n\\)\")",
       "Bash(git commit:*)",
       "Bash(taskkill:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(docker run:*)"
     ]
   }
 }
