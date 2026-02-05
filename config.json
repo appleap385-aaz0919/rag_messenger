@@ -1,0 +1,53 @@
+{
+  "server": {
+    "port": 3001,
+    "host": "localhost"
+  },
+  "llm": {
+    "provider": "ollama",
+    "model": "llama3.2:latest",
+    "baseUrl": "http://localhost:11434",
+    "temperature": 0.7,
+    "maxTokens": 2000
+  },
+  "vectorStore": {
+    "type": "chromadb",
+    "path": "./data/chromadb",
+    "collectionName": "jeffrey_documents"
+  },
+  "embeddings": {
+    "provider": "ollama",
+    "model": "nomic-embed-text"
+  },
+  "folders": [
+    "D:\\jaehyuk.myung\\바탕 화면(KT ds) 중간보고_산출물_2024.05.28",
+    "D:\\jaehyuk.myung\\바탕 화면\\TF",
+    "D:\\jaehyuk.myung\\바탕 화면\\두클래스",
+    "D:\\jaehyuk.myung\\바탕 화면\\AI DT",
+    "D:\\jaehyuk.myung\\바탕 화면\\회사 내규 및 가이드",
+    "D:\\jaehyuk.myung\\바탕 화면\\LMS",
+    "D:\\jaehyuk.myung\\바탕 화면\\AI_AX_TF"
+  ],
+  "chunking": {
+    "chunkSize": 1000,
+    "chunkOverlap": 200
+  },
+  "fileWatcher": {
+    "enabled": true,
+    "debounceDelay": 1000
+  },
+  "supportedFormats": [
+    ".pdf",
+    ".docx",
+    ".doc",
+    ".xlsx",
+    ".xls",
+    ".csv",
+    ".pptx",
+    ".ppt",
+    ".txt",
+    ".md",
+    ".json",
+    ".xml"
+  ]
+}

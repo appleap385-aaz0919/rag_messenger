@@ -1,0 +1,44 @@
+{
+  "name": "jeffrey-backend",
+  "version": "1.0.0",
+  "description": "제프리 - 로컬 문서 기반 AI 메신저 백엔드",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": ["ai", "messenger", "rag", "langchain"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ollama": "^0.5.0",
+    "chromadb": "^1.8.1",
+    "chokidar": "^4.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.0",
+    "glob": "^10.3.0",
+    "helmet": "^7.1.0",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.7.1",
+    "pdf-parse": "^1.1.1",
+    "uuid": "^9.0.1",
+    "ws": "^8.17.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "@types/pdf-parse": "^1.1.4",
+    "@types/uuid": "^9.0.8",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}
