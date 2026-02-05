@@ -25,6 +25,17 @@ D:\\...\\경로\\파일명.ext`;
    * 질문 처리 및 응답 생성
    */
   async query(question: string, _conversationId?: string): Promise<ChatResponse> {
+    // 0. 인덱스 상태 확인
+    const documentCount = await chromaDBService.count();
+    if (documentCount === 0) {
+      return {
+        messageId: uuidv4(),
+        content: '주인님, 아직 문서가 학습되지 않았습니다.\n\n좌측 메뉴에서 "재학습" 버튼을 눌러 문서를 먼저 학습시켜주세요.\n\n(또는 Ollama 서버가 실행 중인지 확인해주세요: http://localhost:11434)',
+        sources: [],
+        timestamp: new Date().toISOString(),
+      };
+    }
+
     // 1. 질문 임베딩
     const { embedding: questionEmbedding } = await embeddingsService.embedText(question);
 

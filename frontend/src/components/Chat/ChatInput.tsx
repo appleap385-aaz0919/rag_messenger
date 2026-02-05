@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { chatApi } from '../../services/api';
 import { useChatStore } from '../../store/chat-store';
 import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
 
 export function ChatInput() {
   const [message, setMessage] = useState('');
@@ -37,10 +38,21 @@ export function ChatInput() {
       addMessage(assistantMessage);
     } catch (error) {
       console.error('메시지 전송 오류:', error);
+
+      // 에러 메시지 추출
+      let errorMessage = '죄송합니다. 오류가 발생했습니다. 다시 시도해 주세요.';
+
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const errorData = error.response.data as { error?: { message?: string } };
+        if (errorData.error?.message) {
+          errorMessage = errorData.error.message;
+        }
+      }
+
       addMessage({
         id: uuidv4(),
         role: 'assistant',
-        content: '죄송합니다. 오류가 발생했습니다. 다시 시도해 주세요.',
+        content: errorMessage,
         timestamp: new Date().toISOString(),
       });
     } finally {

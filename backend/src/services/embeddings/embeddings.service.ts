@@ -19,15 +19,25 @@ export class EmbeddingsService {
    * 단일 텍스트 임베딩
    */
   async embedText(text: string): Promise<EmbeddingResult> {
-    const response = await this.client.embeddings({
-      model: this.model,
-      prompt: text,
-    });
+    try {
+      const response = await this.client.embeddings({
+        model: this.model,
+        prompt: text,
+      });
 
-    return {
-      embedding: response.embedding,
-      text,
-    };
+      return {
+        embedding: response.embedding,
+        text,
+      };
+    } catch (error) {
+      if (error instanceof Error && 'cause' in error) {
+        const cause = (error as { cause: { code?: string } }).cause;
+        if (cause?.code === 'ECONNREFUSED') {
+          throw new Error(`Ollama 서버에 연결할 수 없습니다 (${config.embeddings.baseUrl}). Ollama 서버가 실행 중인지 확인해주세요.`);
+        }
+      }
+      throw new Error(`임베딩 생성 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    }
   }
 
   /**

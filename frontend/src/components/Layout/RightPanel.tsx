@@ -1,9 +1,20 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX } from 'react-icons/fi';
 import { useSettingsStore } from '../../store/settings-store';
+import { useEffect } from 'react';
+import { settingsApi } from '../../services/api';
 
 export function RightPanel() {
-  const { rightPanelOpen, setRightPanelOpen, folders } = useSettingsStore();
+  const { rightPanelOpen, setRightPanelOpen, folders, setFolders } = useSettingsStore();
+
+  // 패널이 열릴 때 폴더 목록 로드
+  useEffect(() => {
+    if (rightPanelOpen) {
+      settingsApi.getFolders()
+        .then(setFolders)
+        .catch(console.error);
+    }
+  }, [rightPanelOpen, setFolders]);
 
   return (
     <AnimatePresence>

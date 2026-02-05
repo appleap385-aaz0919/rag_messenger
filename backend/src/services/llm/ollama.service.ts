@@ -20,52 +20,75 @@ export class OllamaService implements ILLMService {
   }
 
   async complete(prompt: string, options?: LLMCompletionOptions): Promise<LLMCompletionResult> {
-    const response = await this.client.generate({
-      model: this.model,
-      prompt,
-      stream: false,
-      options: {
-        temperature: options?.temperature ?? config.llm.temperature,
-        num_predict: options?.maxTokens ?? config.llm.maxTokens,
-      },
-    });
+    try {
+      const response = await this.client.generate({
+        model: this.model,
+        prompt,
+        stream: false,
+        options: {
+          temperature: options?.temperature ?? config.llm.temperature,
+          num_predict: options?.maxTokens ?? config.llm.maxTokens,
+        },
+      });
 
-    return {
-      content: response.response,
-      usage: {
-        promptTokens: response.prompt_eval_count ?? 0,
-        completionTokens: response.eval_count ?? 0,
-        totalTokens: (response.prompt_eval_count ?? 0) + (response.eval_count ?? 0),
-      },
-    };
-  }
-
-  async chat(messages: LLMMessage[], options?: LLMCompletionOptions): Promise<LLMCompletionResult> {
-    const response = await this.client.chat({
-      model: this.model,
-      messages: messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-      stream: false,
-      options: {
-        temperature: options?.temperature ?? config.llm.temperature,
-        num_predict: options?.maxTokens ?? config.llm.maxTokens,
-      },
-    });
-
-    if (response.message?.content) {
       return {
-        content: response.message.content,
+        content: response.response,
         usage: {
           promptTokens: response.prompt_eval_count ?? 0,
           completionTokens: response.eval_count ?? 0,
           totalTokens: (response.prompt_eval_count ?? 0) + (response.eval_count ?? 0),
         },
       };
+    } catch (error) {
+      if (error instanceof Error && 'cause' in error) {
+        const cause = (error as { cause: { code?: string } }).cause;
+        if (cause?.code === 'ECONNREFUSED') {
+          throw new Error(`Ollama 서버에 연결할 수 없습니다 (${config.llm.baseUrl}). Ollama 서버가 실행 중인지 확인해주세요.`);
+        }
+      }
+      throw new Error(`LLM 응답 생성 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     }
+  }
 
-    throw new Error('Ollama 응답에 내용이 없습니다.');
+  async chat(messages: LLMMessage[], options?: LLMCompletionOptions): Promise<LLMCompletionResult> {
+    try {
+      const response = await this.client.chat({
+        model: this.model,
+        messages: messages.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        })),
+        stream: false,
+        options: {
+          temperature: options?.temperature ?? config.llm.temperature,
+          num_predict: options?.maxTokens ?? config.llm.maxTokens,
+        },
+      });
+
+      if (response.message?.content) {
+        return {
+          content: response.message.content,
+          usage: {
+            promptTokens: response.prompt_eval_count ?? 0,
+            completionTokens: response.eval_count ?? 0,
+            totalTokens: (response.prompt_eval_count ?? 0) + (response.eval_count ?? 0),
+          },
+        };
+      }
+
+      throw new Error('Ollama 응답에 내용이 없습니다.');
+    } catch (error) {
+      if (error instanceof Error && 'cause' in error) {
+        const cause = (error as { cause: { code?: string } }).cause;
+        if (cause?.code === 'ECONNREFUSED') {
+          throw new Error(`Ollama 서버에 연결할 수 없습니다 (${config.llm.baseUrl}). Ollama 서버가 실행 중인지 확인해주세요.`);
+        }
+      }
+      if (error instanceof Error) {
+        throw error; // Re-throw the error if it's already been handled
+      }
+      throw new Error(`LLM 응답 생성 실패: ${String(error)}`);
+    }
   }
 
   async streamComplete(

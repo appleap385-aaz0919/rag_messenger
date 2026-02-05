@@ -10,11 +10,20 @@ interface MainChatProps {
 export function MainChat({ children }: MainChatProps) {
   const { messages, isTyping } = useChatStore();
 
+  // 첫 번째 사용자 메시지를 대화 제목으로 사용
+  const getConversationTitle = () => {
+    const firstUserMessage = messages.find(m => m.role === 'user');
+    if (firstUserMessage) {
+      return firstUserMessage.content.slice(0, 30) + (firstUserMessage.content.length > 30 ? '...' : '');
+    }
+    return '새 대화';
+  };
+
   return (
     <main className="flex-1 flex flex-col bg-background">
       {/* 헤더 */}
       <header className="h-14 border-b border-gray-200 flex items-center px-6">
-        <h2 className="font-semibold text-gray-800">새 대화</h2>
+        <h2 className="font-semibold text-gray-800">{getConversationTitle()}</h2>
       </header>
 
       {/* 메시지 영역 */}

@@ -1,19 +1,28 @@
-import { FiMessageSquare, FiSettings, FiRefreshCw } from 'react-icons/fi';
+import { FiMessageSquare, FiSettings, FiRefreshCw, FiPlus } from 'react-icons/fi';
 import { useSettingsStore } from '../../store/settings-store';
+import { useChatStore } from '../../store/chat-store';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { SettingsModal } from '../Settings/SettingsModal';
+import { documentsApi } from '../../services/api';
 
 export function Sidebar() {
   const { toggleRightPanel } = useSettingsStore();
+  const { clearMessages } = useChatStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isIndexing, setIsIndexing] = useState(false);
+
+  const handleNewChat = () => {
+    clearMessages();
+  };
 
   const handleIndexing = async () => {
     setIsIndexing(true);
     try {
-      // TODO: 인덱싱 API 호출
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await documentsApi.startIndex();
+    } catch (error) {
+      console.error('인덱싱 오류:', error);
+      alert('인덱싱 시작 실패: Ollama 서버가 실행 중인지 확인해주세요.');
     } finally {
       setIsIndexing(false);
     }
@@ -34,20 +43,21 @@ export function Sidebar() {
 
         {/* 새 대화 버튼 */}
         <div className="p-3">
-          <button className="w-full bg-primary text-white rounded-lg py-2 px-4 text-sm font-medium hover:bg-blue-600 transition-colors">
-            + 새 대화
+          <button
+            onClick={handleNewChat}
+            className="w-full bg-primary text-white rounded-lg py-2 px-4 text-sm font-medium hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <FiPlus />
+            새 대화
           </button>
         </div>
 
         {/* 대화 목록 */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-2">
-          <div className="text-xs text-gray-400 font-medium">최근 대화</div>
-          <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm text-gray-700">
-            프로젝트 일정 문의
-          </button>
-          <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm text-gray-700">
-            코드 리뷰 요청
-          </button>
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
+          <div className="text-center text-gray-400 text-sm py-8">
+            대화 기록이 없습니다.<br />
+            새 대화를 시작해주세요!
+          </div>
         </div>
 
         {/* 하단 메뉴 */}
