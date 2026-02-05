@@ -1,6 +1,8 @@
 import { ChromaClient, Collection } from 'chromadb';
 import config from '../../config/app.config';
 import type { DocumentChunk, VectorSearchResult } from '../../types';
+import path from 'path';
+import fs from 'fs';
 
 /**
  * ChromaDB 벡터 저장소 서비스
@@ -9,10 +11,19 @@ export class ChromaDBService {
   private client: ChromaClient;
   private collection: Collection | null = null;
   private collectionName: string;
+  private dataPath: string;
 
   constructor() {
+    // 절대 경로로 변환
+    this.dataPath = path.resolve(process.cwd(), config.vectorStore.path);
+
+    // 데이터 디렉토리 생성
+    if (!fs.existsSync(this.dataPath)) {
+      fs.mkdirSync(this.dataPath, { recursive: true });
+    }
+
     this.client = new ChromaClient({
-      path: config.vectorStore.path,
+      path: this.dataPath,
     });
     this.collectionName = config.vectorStore.collectionName;
   }
