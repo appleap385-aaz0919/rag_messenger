@@ -2,10 +2,24 @@ import { useState } from 'react';
 import { settingsApi } from '../../services/api';
 import { useSettingsStore } from '../../store/settings-store';
 
+// 자주 사용하는 Ollama 모델 목록
+const OLLAMA_MODELS = [
+  'llama3.2:latest',
+  'llama3.1:latest',
+  'llama3:latest',
+  'gemma2:latest',
+  'mistral:latest',
+  'codellama:latest',
+  'phi3:latest',
+  'qwen2.5:latest',
+  'glm4:latest',
+];
+
 export function LLMSettings() {
   const { llmSettings, setLLMSettings } = useSettingsStore();
   const [localSettings, setLocalSettings] = useState(llmSettings);
   const [isSaving, setIsSaving] = useState(false);
+  const [customModel, setCustomModel] = useState('');
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -43,13 +57,37 @@ export function LLMSettings() {
         <label className="block text-sm font-medium text-gray-700 mb-1">
           모델
         </label>
-        <input
-          type="text"
-          value={localSettings.model}
-          onChange={(e) => setLocalSettings({ ...localSettings, model: e.target.value })}
-          placeholder="llama3.2:latest"
+        <select
+          value={OLLAMA_MODELS.includes(localSettings.model) ? localSettings.model : 'custom'}
+          onChange={(e) => {
+            if (e.target.value === 'custom') {
+              setCustomModel(localSettings.model);
+            } else {
+              setLocalSettings({ ...localSettings, model: e.target.value });
+            }
+          }}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-        />
+        >
+          <option value="" disabled>모델 선택</option>
+          {OLLAMA_MODELS.map((model) => (
+            <option key={model} value={model}>
+              {model}
+            </option>
+          ))}
+          <option value="custom">직접 입력</option>
+        </select>
+        {(!OLLAMA_MODELS.includes(localSettings.model) || customModel) && (
+          <input
+            type="text"
+            value={customModel || localSettings.model}
+            onChange={(e) => {
+              setCustomModel(e.target.value);
+              setLocalSettings({ ...localSettings, model: e.target.value });
+            }}
+            placeholder="사용자 정의 모델 (예: glm4:latest)"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary mt-2"
+          />
+        )}
       </div>
 
       <div>
