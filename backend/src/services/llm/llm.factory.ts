@@ -1,6 +1,6 @@
 import config from '../../config/app.config';
 import { OllamaService } from './ollama.service';
-// import { OpenAIService } from './openai.service'; // 확장용
+import { OpenAIService } from './openai.service';
 import type { ILLMService } from './base.interface';
 
 /**
@@ -17,8 +17,9 @@ export class LLMFactory {
           this.instance = new OllamaService();
           break;
         case 'openai':
-          // this.instance = new OpenAIService();
-          throw new Error('OpenAI 서비스는 아직 구현되지 않았습니다.');
+        case 'zhipu':
+          this.instance = new OpenAIService();
+          break;
         default:
           this.instance = new OllamaService();
       }

@@ -1,8 +1,9 @@
 import { llmService } from '../llm/llm.factory';
-import { embeddingsService } from '../embeddings/embeddings.service';
+import { embeddingsService } from '../embeddings/embeddings.factory';
 import { inMemoryVectorStore } from '../vectorstore/in-memory-store';
 import type { ChatResponse, DocumentSource } from '../../types';
 import { v4 as uuidv4 } from 'uuid';
+import config from '../../config/app.config';
 
 /**
  * RAG 파이프라인 서비스
@@ -28,9 +29,14 @@ D:\\...\\경로\\파일명.ext`;
     // 0. 인덱스 상태 확인
     const documentCount = await inMemoryVectorStore.count();
     if (documentCount === 0) {
+      const provider = config.llm.provider;
+      const serverHint = provider === 'ollama'
+        ? 'Ollama 서버가 실행 중인지 확인해주세요: http://localhost:11434'
+        : 'API 설정이 올바른지 확인해주세요.';
+
       return {
         messageId: uuidv4(),
-        content: '주인님, 아직 문서가 학습되지 않았습니다.\n\n좌측 메뉴에서 "재학습" 버튼을 눌러 문서를 먼저 학습시켜주세요.\n\n(또는 Ollama 서버가 실행 중인지 확인해주세요: http://localhost:11434)',
+        content: `주인님, 아직 문서가 학습되지 않았습니다.\n\n좌측 메뉴에서 "재학습" 버튼을 눌러 문서를 먼저 학습시켜주세요.\n\n(${serverHint})`,
         sources: [],
         timestamp: new Date().toISOString(),
       };

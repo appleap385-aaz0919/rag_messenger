@@ -66,7 +66,7 @@ export interface Conversation {
 
 // LLM 설정 타입
 export interface LLMSettings {
-  provider: 'ollama' | 'openai';
+  provider: 'ollama' | 'openai' | 'zhipu';
   model: string;
   baseUrl: string;
   apiKey?: string;

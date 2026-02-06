@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { ParserFactory } from './parser.factory';
 import { chunkingService } from './chunking.service';
-import { embeddingsService } from '../embeddings/embeddings.service';
+import { embeddingsService } from '../embeddings/embeddings.factory';
 import config from '../../config/app.config';
 import type { FileInfo, DocumentChunk } from '../../types';
 import { glob } from 'glob';

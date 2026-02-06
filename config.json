@@ -4,9 +4,10 @@
     "host": "localhost"
   },
   "llm": {
-    "provider": "ollama",
-    "model": "llama3.2:latest",
-    "baseUrl": "http://localhost:11434",
+    "provider": "zhipu",
+    "model": "glm-4-flash",
+    "baseUrl": "https://api.z.ai/v1",
+    "apiKey": "9975dafe12f8498aa3da36654e33a206.Ot0lub5Byg36e3Qu",
     "temperature": 0.7,
     "maxTokens": 2000
   },
@@ -16,8 +17,10 @@
     "collectionName": "jeffrey_documents"
   },
   "embeddings": {
-    "provider": "ollama",
-    "model": "nomic-embed-text"
+    "provider": "zhipu",
+    "model": "embedding-2",
+    "apiKey": "9975dafe12f8498aa3da36654e33a206.Ot0lub5Byg36e3Qu",
+    "baseUrl": "https://api.z.ai/v1"
   },
   "folders": [
     "D:\\jaehyuk.myung\\바탕 화면(KT ds) 중간보고_산출물_2024.05.28",

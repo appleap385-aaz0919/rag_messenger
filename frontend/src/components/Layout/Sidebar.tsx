@@ -22,7 +22,8 @@ export function Sidebar() {
       await documentsApi.startIndex();
     } catch (error) {
       console.error('인덱싱 오류:', error);
-      alert('인덱싱 시작 실패: Ollama 서버가 실행 중인지 확인해주세요.');
+      const errorMessage = (error as any)?.response?.data?.error?.message || (error as any)?.message || '인덱싱 시작 실패';
+      alert(`인덱싱 시작 실패: ${errorMessage}`);
     } finally {
       setIsIndexing(false);
     }

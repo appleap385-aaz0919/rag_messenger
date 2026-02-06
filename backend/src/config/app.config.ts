@@ -1,7 +1,7 @@
 import configRoot from '../../../config.json';
 
 interface LLMConfig {
-  provider: 'ollama' | 'openai';
+  provider: 'ollama' | 'openai' | 'zhipu';
   model: string;
   baseUrl: string;
   apiKey?: string;
@@ -16,7 +16,7 @@ interface VectorStoreConfig {
 }
 
 interface EmbeddingsConfig {
-  provider: 'ollama' | 'openai';
+  provider: 'ollama' | 'openai' | 'zhipu';
   model: string;
   apiKey?: string;
   baseUrl?: string;
@@ -53,11 +53,11 @@ const config: AppConfig = {
   ...configRoot,
   llm: {
     ...configRoot.llm,
-    provider: configRoot.llm.provider as 'ollama' | 'openai',
+    provider: configRoot.llm.provider as 'ollama' | 'openai' | 'zhipu',
   },
   embeddings: {
     ...configRoot.embeddings,
-    provider: configRoot.embeddings.provider as 'ollama' | 'openai',
+    provider: configRoot.embeddings.provider as 'ollama' | 'openai' | 'zhipu',
   },
   vectorStore: {
     ...configRoot.vectorStore,
