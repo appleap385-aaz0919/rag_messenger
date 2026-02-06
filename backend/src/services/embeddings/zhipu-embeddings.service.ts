@@ -22,7 +22,7 @@ export class ZhipuEmbeddingsService {
    * Zhipu AI는 JWT 토큰을 사용하여 인증
    */
   private generateToken(): string {
-    const now = Date.now();
+    const now = Date.now(); // Milliseconds
     // 캐시된 토큰이 있고 만료되지 않았으면 재사용
     if (this.cachedToken && now < this.tokenExpiry) {
       return this.cachedToken;
@@ -36,23 +36,26 @@ export class ZhipuEmbeddingsService {
     // 토큰 페이로드
     const payload = {
       api_key: id,
-      exp: now + 3600 * 1000, // 1시간 후 만료
-      timestamp: now,
+      exp: now + 3600 * 1000, // 1시간 후 만료 (ms)
+      timestamp: now, // ms
     };
 
     // JWT 토큰 생성
-    const token = jwt.sign(payload, secret, { algorithm: 'HS256' });
+    const token = jwt.sign(payload, secret, {
+      algorithm: 'HS256',
+      header: { alg: 'HS256', sign_type: 'SIGN' }
+    });
 
     // 토큰 캐시 (5분 전에 만료로 간주하여 갱신)
     this.cachedToken = token;
-    this.tokenExpiry = now + 3600 * 1000 - 300 * 1000;
+    this.tokenExpiry = now + 3600 * 1000 - 300 * 1000; // ms
 
     return token;
   }
 
   setConfig(apiKey: string, baseUrl?: string, model?: string): void {
     this.apiKey = apiKey;
-    if (baseUrl) this.baseUrl = baseUrl;
+    if (baseUrl) this.baseUrl = baseUrl.replace(/\/$/, '');
     if (model) this.model = model;
   }
 
@@ -99,42 +102,22 @@ export class ZhipuEmbeddingsService {
     }
   }
 
-  async embedBatch(texts: string[]): Promise<Array<{ embedding: number[]; text: string }>> {
+  /**
+   * 배치 텍스트 임베딩
+   */
+  async embedBatch(texts: string[], onProgress?: () => Promise<void>): Promise<Array<{ embedding: number[]; text: string }>> {
     if (!this.apiKey) {
       throw new Error('Zhipu API Key가 설정되지 않았습니다.');
     }
 
-    try {
-      const token = this.generateToken();
-      const response = await fetch(`${this.baseUrl}/embeddings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          input: texts,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Zhipu API 오류: ${response.status} - ${errorText}`);
+    const results: Array<{ embedding: number[]; text: string }> = [];
+    for (const text of texts) {
+      if (onProgress) {
+        await onProgress();
       }
-
-      const data = await response.json() as { data: Array<{ embedding: number[] }> };
-
-      return data.data.map((item, index: number) => ({
-        embedding: item.embedding,
-        text: texts[index],
-      }));
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`배치 임베딩 생성 실패: ${error.message}`);
-      }
-      throw new Error('배치 임베딩 생성 실패: 알 수 없는 오류');
+      results.push(await this.embedText(text));
     }
+    return results;
   }
 
   cosineSimilarity(embedding1: number[], embedding2: number[]): number {

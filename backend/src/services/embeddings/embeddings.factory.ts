@@ -7,7 +7,7 @@ import { zhipuEmbeddingsService } from './zhipu-embeddings.service';
  */
 interface IEmbeddingsService {
   embedText(text: string): Promise<{ embedding: number[]; text: string }>;
-  embedBatch(texts: string[]): Promise<{ embedding: number[]; text: string }[]>;
+  embedBatch(texts: string[], onProgress?: () => Promise<void>): Promise<{ embedding: number[]; text: string }[]>;
 }
 
 /**

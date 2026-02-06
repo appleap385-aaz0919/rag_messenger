@@ -1,21 +1,20 @@
 import fs from 'fs/promises';
-import pdfParse from 'pdf-parse';
+import path from 'path';
+import pdf from 'pdf-parse';
 
-/**
- * PDF 파서
- */
-export class PDFParser {
+export class PdfParser {
   async parse(filePath: string): Promise<string> {
-    const buffer = await fs.readFile(filePath);
-    const data = await pdfParse(buffer);
-
-    return data.text;
-  }
-
-  extractMetadata(_filePath: string): Record<string, any> {
-    return {
-      type: 'pdf',
-      mimeType: 'application/pdf',
-    };
+    try {
+      const buffer = await fs.readFile(filePath);
+      const data = await pdf(buffer);
+      return data.text;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`PDF 파일 파싱 실패 (${path.basename(filePath)}): ${error.message}`);
+      }
+      throw new Error(`PDF 파일 파싱 실패 (${path.basename(filePath)}): 알 수 없는 오류`);
+    }
   }
 }
+
+export const pdfParser = new PdfParser();

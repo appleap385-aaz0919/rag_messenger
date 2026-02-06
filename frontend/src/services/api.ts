@@ -3,7 +3,7 @@ import type { ChatRequest, ChatResponse, Conversation, IndexingStatus, FileInfo,
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 30000,
+  timeout: 60000,
 });
 
 // 채팅 관련 API
@@ -13,9 +13,44 @@ export const chatApi = {
     return response.data.data;
   },
 
-  getHistory: async () => {
-    const response = await api.get<{ success: boolean; data: Conversation[] }>('/chat/history');
-    return response.data.data;
+  sendMessageStream: async (data: ChatRequest, onUpdate: (packet: { type: string; content: any }) => void) => {
+    const response = await fetch('/api/chat/message/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Streaming request failed');
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) return;
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const json = JSON.parse(line.substring(6));
+            onUpdate(json);
+          } catch (e) {
+            console.warn('Failed to parse stream chunk:', e);
+          }
+        }
+      }
+    }
   },
 
   getConversation: async (id: string) => {
@@ -34,6 +69,16 @@ export const documentsApi = {
   getStatus: async () => {
     const response = await api.get<{ success: boolean; data: IndexingStatus }>('/documents/status');
     return response.data.data;
+  },
+
+  stopIndex: async () => {
+    const response = await api.post<{ success: boolean; message: string }>('/documents/stop-index');
+    return response.data;
+  },
+
+  clearIndex: async () => {
+    const response = await api.post<{ success: boolean; message: string }>('/documents/clear-index');
+    return response.data;
   },
 
   getFiles: async () => {

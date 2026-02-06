@@ -8,7 +8,12 @@ export function useWebSocket() {
 
   useEffect(() => {
     const connect = () => {
-      const ws = new WebSocket('ws://localhost:3001/ws');
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.hostname;
+      const port = '3001'; // Backend port
+      const wsUrl = `${protocol}//${host}:${port}/ws`;
+
+      const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         setIsConnected(true);

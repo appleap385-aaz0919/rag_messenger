@@ -1,124 +1,158 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
+import config from '../config/app.config';
 import fs from 'fs/promises';
 import path from 'path';
-import config from '../config/app.config';
-import { LLMFactory } from '../services/llm/llm.factory';
-import { EmbeddingsFactory } from '../services/embeddings/embeddings.factory';
-import { createError } from '../middleware/error.middleware';
-
-// 프로젝트 루트의 config.json 경로 (backend 폴더에서 상위로 올라감)
-const CONFIG_PATH = path.join(process.cwd(), '..', 'config.json');
 
 export class SettingsController {
-  async getFolders(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  private configPath = path.resolve(process.cwd(), 'config.json');
+
+  private async saveConfigToDisk() {
     try {
-      res.json({
-        success: true,
-        data: config.folders,
-      });
+      // Create a clean version of the config to save back to JSON
+      // Note: app.config.ts might have some runtime-only fields or transformations
+      // We should ideally only save the fields that exist in the original config.json
+      const configToSave = {
+        server: config.server,
+        llm: config.llm,
+        vectorStore: config.vectorStore,
+        embeddings: config.embeddings,
+        folders: config.folders,
+        chunking: config.chunking,
+        fileWatcher: config.fileWatcher,
+        supportedFormats: config.supportedFormats
+      };
+
+      await fs.writeFile(this.configPath, JSON.stringify(configToSave, null, 2), 'utf-8');
+      console.log('[Settings] Config saved to disk');
     } catch (error) {
-      next(error);
+      console.error('[Settings] Failed to save config to disk:', error);
+      throw error;
     }
   }
 
-  async addFolder(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getSettings(_req: Request, res: Response) {
+    try {
+      // Return safe config (exclude API keys if sensitive)
+      const safeConfig = {
+        ...config,
+        llm: {
+          ...config.llm,
+          apiKey: config.llm.apiKey ? '***' : undefined
+        },
+        embeddings: {
+          ...config.embeddings,
+          apiKey: config.embeddings.apiKey ? '***' : undefined
+        }
+      };
+      return res.json({ success: true, data: safeConfig });
+    } catch (error) {
+      console.error('[Settings] Error fetching settings:', error);
+      return res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  }
+
+  async updateSettings(req: Request, res: Response) {
+    try {
+      const updates = req.body;
+      console.log('[Settings] Received updates:', updates);
+
+      // Update in-memory
+      Object.assign(config, updates);
+
+      // Persist
+      await this.saveConfigToDisk();
+
+      return res.json({ success: true, message: 'Settings updated and saved', data: config });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: 'Failed to update settings' });
+    }
+  }
+
+  async getFolders(_req: Request, res: Response) {
+    try {
+      console.log('[Settings] GET /folders - current config count:', config.folders?.length || 0);
+      return res.json({ success: true, data: config.folders || [] });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: 'Failed to get folders' });
+    }
+  }
+
+  async addFolder(req: Request, res: Response) {
     try {
       const { folder } = req.body;
-
-      if (!folder || typeof folder !== 'string') {
-        throw createError('폴더 경로는 필수 항목입니다.', 400);
+      if (!folder) {
+        return res.status(400).json({ success: false, error: 'Folder path is required' });
       }
 
-      // TODO: 폴더 추가 및 config.json 업데이트 구현
-      res.json({
-        success: true,
-        message: '폴더가 추가되었습니다.',
-        data: [...config.folders, folder],
-      });
+      if (!config.folders) config.folders = [];
+      if (!config.folders.includes(folder)) {
+        config.folders.push(folder);
+        await this.saveConfigToDisk();
+      }
+
+      return res.json({ success: true, data: config.folders });
     } catch (error) {
-      next(error);
+      return res.status(500).json({ success: false, error: 'Failed to add folder' });
     }
   }
 
-  async removeFolder(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async removeFolder(req: Request, res: Response) {
     try {
       const { folder } = req.body;
-
-      if (!folder || typeof folder !== 'string') {
-        throw createError('폴더 경로는 필수 항목입니다.', 400);
+      if (!folder) {
+        return res.status(400).json({ success: false, error: 'Folder path is required' });
       }
 
-      // TODO: 폴더 제거 및 config.json 업데이트 구현
-      const filtered = config.folders.filter((f: string) => f !== folder);
+      if (config.folders) {
+        config.folders = config.folders.filter((f: string) => f !== folder);
+        await this.saveConfigToDisk();
+      }
 
-      res.json({
-        success: true,
-        message: '폴더가 제거되었습니다.',
-        data: filtered,
-      });
+      return res.json({ success: true, data: config.folders || [] });
     } catch (error) {
-      next(error);
+      return res.status(500).json({ success: false, error: 'Failed to remove folder' });
     }
   }
 
-  async getLLMConfig(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getLLMConfig(_req: Request, res: Response) {
     try {
-      res.json({
+      return res.json({
         success: true,
         data: {
           provider: config.llm.provider,
           model: config.llm.model,
-          baseUrl: config.llm.baseUrl,
-          apiKey: config.llm.apiKey || '',
           temperature: config.llm.temperature,
-          maxTokens: config.llm.maxTokens,
-        },
+          maxTokens: config.llm.maxTokens
+        }
       });
     } catch (error) {
-      next(error);
+      return res.status(500).json({ success: false, error: 'Failed to get LLM config' });
     }
   }
 
-  async updateLLMConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updateLLMConfig(req: Request, res: Response) {
     try {
-      const { provider, model, baseUrl, apiKey, temperature, maxTokens } = req.body;
+      const updates = req.body;
 
-      // config.json 읽기
-      const configContent = await fs.readFile(CONFIG_PATH, 'utf-8');
-      const configData = JSON.parse(configContent);
+      // Update in-memory
+      Object.assign(config.llm, updates);
 
-      // LLM 설정 업데이트
-      configData.llm.provider = provider;
-      configData.llm.model = model;
-      configData.llm.baseUrl = baseUrl;
-      configData.llm.temperature = temperature;
-      configData.llm.maxTokens = maxTokens;
-      if (apiKey !== undefined) {
-        configData.llm.apiKey = apiKey;
-      }
+      // Persist
+      await this.saveConfigToDisk();
 
-      // embeddings 공급자도 동기화
-      configData.embeddings.provider = provider;
-      configData.embeddings.baseUrl = baseUrl;
-      configData.embeddings.model = req.body.embeddingsModel || configData.embeddings.model;
-      if (apiKey !== undefined) {
-        configData.embeddings.apiKey = apiKey;
-      }
-
-      // config.json 쓰기
-      await fs.writeFile(CONFIG_PATH, JSON.stringify(configData, null, 2), 'utf-8');
-
-      // 서비스 인스턴스 재초기화
-      LLMFactory.resetInstance();
-      EmbeddingsFactory.resetInstance();
-
-      res.json({
+      return res.json({
         success: true,
-        message: 'LLM 설정이 업데이트되었습니다.',
-        data: { provider, model, baseUrl, temperature, maxTokens },
+        data: {
+          provider: config.llm.provider,
+          model: config.llm.model,
+          temperature: config.llm.temperature,
+          maxTokens: config.llm.maxTokens
+        }
       });
     } catch (error) {
-      next(error);
+      return res.status(500).json({ success: false, error: 'Failed to update LLM config' });
     }
   }
 }
+
+export const settingsController = new SettingsController();

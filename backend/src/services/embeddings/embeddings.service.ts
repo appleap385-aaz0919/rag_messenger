@@ -16,37 +16,51 @@ export class EmbeddingsService {
   }
 
   /**
-   * 단일 텍스트 임베딩
+   * 단일 텍스트 임베딩 (재시도 로직 추가)
    */
-  async embedText(text: string): Promise<EmbeddingResult> {
-    try {
-      const response = await this.client.embeddings({
-        model: this.model,
-        prompt: text,
-      });
+  async embedText(text: string, retries = 3): Promise<EmbeddingResult> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-      return {
-        embedding: response.embedding,
-        text,
-      };
-    } catch (error) {
-      if (error instanceof Error && 'cause' in error) {
-        const cause = (error as { cause: { code?: string } }).cause;
-        if (cause?.code === 'ECONNREFUSED') {
-          throw new Error(`Ollama 서버에 연결할 수 없습니다 (${config.embeddings.baseUrl}). Ollama 서버가 실행 중인지 확인해주세요.`);
+        const response = await this.client.embeddings({
+          model: this.model,
+          prompt: text,
+        });
+
+        clearTimeout(timeoutId);
+
+        return {
+          embedding: response.embedding,
+          text,
+        };
+      } catch (error) {
+        const isLastRetry = i === retries - 1;
+        if (isLastRetry) {
+          if (error instanceof Error && 'cause' in error) {
+            const cause = (error as { cause: { code?: string } }).cause;
+            if (cause?.code === 'ECONNREFUSED') {
+              throw new Error(`Ollama 서버에 연결할 수 없습니다 (${config.embeddings.baseUrl}). Ollama 서버가 실행 중인지 확인해주세요.`);
+            }
+          }
+          throw new Error(`임베딩 생성 실패 (최종 시도): ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
         }
+        console.warn(`[Embeddings] Attempt ${i + 1} failed, retrying in 1s...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      throw new Error(`임베딩 생성 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     }
+    throw new Error('임베딩 생성 실패: 모든 재시도가 실패했습니다.');
   }
 
   /**
    * 배치 텍스트 임베딩
    */
-  async embedBatch(texts: string[]): Promise<EmbeddingResult[]> {
+  async embedBatch(texts: string[], onProgress?: () => Promise<void>): Promise<EmbeddingResult[]> {
     const results: EmbeddingResult[] = [];
 
     for (const text of texts) {
+      if (onProgress) await onProgress();
       const result = await this.embedText(text);
       results.push(result);
     }

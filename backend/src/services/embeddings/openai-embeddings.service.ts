@@ -62,27 +62,19 @@ export class OpenAIEmbeddingsService {
   /**
    * 배치 텍스트 임베딩
    */
-  async embedBatch(texts: string[]): Promise<EmbeddingResult[]> {
+  async embedBatch(texts: string[], onProgress?: () => Promise<void>): Promise<EmbeddingResult[]> {
     if (!this.client) {
       throw new Error('임베딩 API Key가 설정되지 않았습니다. 설정에서 API Key를 입력해주세요.');
     }
 
-    try {
-      const response = await this.client.embeddings.create({
-        model: this.model,
-        input: texts,
-      });
-
-      return response.data.map((item, index) => ({
-        embedding: item.embedding,
-        text: texts[index],
-      }));
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`배치 임베딩 생성 실패: ${error.message}`);
+    const results: EmbeddingResult[] = [];
+    for (const text of texts) {
+      if (onProgress) {
+        await onProgress();
       }
-      throw new Error(`배치 임베딩 생성 실패: 알 수 없는 오류`);
+      results.push(await this.embedText(text));
     }
+    return results;
   }
 
   /**

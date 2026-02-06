@@ -4,26 +4,23 @@
     "host": "localhost"
   },
   "llm": {
-    "provider": "zhipu",
-    "model": "glm-4-flash",
-    "baseUrl": "https://api.z.ai/v1",
-    "apiKey": "9975dafe12f8498aa3da36654e33a206.Ot0lub5Byg36e3Qu",
-    "temperature": 0.7,
+    "provider": "ollama",
+    "model": "phi3:latest",
+    "baseUrl": "http://localhost:11434",
+    "temperature": 0.1,
     "maxTokens": 2000
   },
   "vectorStore": {
-    "type": "chromadb",
-    "path": "./data/chromadb",
+    "type": "memory",
+    "path": "./data/vectorstore.json",
     "collectionName": "jeffrey_documents"
   },
   "embeddings": {
-    "provider": "zhipu",
-    "model": "embedding-2",
-    "apiKey": "9975dafe12f8498aa3da36654e33a206.Ot0lub5Byg36e3Qu",
-    "baseUrl": "https://api.z.ai/v1"
+    "provider": "ollama",
+    "model": "nomic-embed-text:latest",
+    "baseUrl": "http://localhost:11434"
   },
   "folders": [
-    "D:\\jaehyuk.myung\\바탕 화면(KT ds) 중간보고_산출물_2024.05.28",
     "D:\\jaehyuk.myung\\바탕 화면\\TF",
     "D:\\jaehyuk.myung\\바탕 화면\\두클래스",
     "D:\\jaehyuk.myung\\바탕 화면\\AI DT",
@@ -43,14 +40,9 @@
     ".pdf",
     ".docx",
     ".doc",
-    ".xlsx",
-    ".xls",
-    ".csv",
-    ".pptx",
-    ".ppt",
     ".txt",
     ".md",
-    ".json",
-    ".xml"
-  ]
+    ".json"
+  ],
+  "frontendUrl": "http://localhost:3003"
 }

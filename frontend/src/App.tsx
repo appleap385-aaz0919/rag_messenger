@@ -1,9 +1,31 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AppLayout } from './components/Layout/AppLayout';
 import { useWebSocket } from './hooks/useWebSocket';
+import { useSettingsStore } from './store/settings-store';
+import { settingsApi } from './services/api';
 
 function App() {
   const { isConnected } = useWebSocket();
+  const setFolders = useSettingsStore((state) => state.setFolders);
+  const setLLMSettings = useSettingsStore((state) => state.setLLMSettings);
+
+  useEffect(() => {
+    const initData = async () => {
+      try {
+        const [folders, llmSettings] = await Promise.all([
+          settingsApi.getFolders(),
+          settingsApi.getLLMConfig()
+        ]);
+        setFolders(folders);
+        setLLMSettings(llmSettings);
+      } catch (error) {
+        console.error('Failed to initialize app data:', error);
+      }
+    };
+
+    initData();
+  }, [setFolders, setLLMSettings]);
 
   return (
     <div className="h-screen bg-background">

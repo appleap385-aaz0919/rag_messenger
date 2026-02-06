@@ -32,13 +32,12 @@ export interface ILLMService {
   chat(messages: LLMMessage[], options?: LLMCompletionOptions): Promise<LLMCompletionResult>;
 
   /**
-   * 스트리밍 완성 (선택적 구현)
+   * 스트리밍 완성 (AsyncGenerator 기반)
    */
-  streamComplete?(
+  streamComplete(
     prompt: string,
-    onChunk: (chunk: string) => void,
     options?: LLMCompletionOptions,
-  ): Promise<LLMCompletionResult>;
+  ): AsyncGenerator<string>;
 
   /**
    * 모델 정보 확인

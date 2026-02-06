@@ -1,6 +1,7 @@
 import config from '../../config/app.config';
 import { OllamaService } from './ollama.service';
 import { OpenAIService } from './openai.service';
+import { ZhipuService } from './zhipu.service';
 import type { ILLMService } from './base.interface';
 
 /**
@@ -17,14 +18,16 @@ export class LLMFactory {
           this.instance = new OllamaService();
           break;
         case 'openai':
-        case 'zhipu':
           this.instance = new OpenAIService();
+          break;
+        case 'zhipu':
+          this.instance = new ZhipuService();
           break;
         default:
           this.instance = new OllamaService();
       }
     }
-    return this.instance;
+    return this.instance!;
   }
 
   static resetInstance(): void {

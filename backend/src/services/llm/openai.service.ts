@@ -98,39 +98,25 @@ export class OpenAIService implements ILLMService {
     }
   }
 
-  async streamComplete(
+  async *streamComplete(
     prompt: string,
-    onChunk?: (chunk: string) => void,
     options?: LLMCompletionOptions,
-  ): Promise<LLMCompletionResult> {
+  ): AsyncGenerator<string> {
     const client = this.ensureClient();
-    let fullContent = '';
 
-    try {
-      const stream = await client.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: options?.temperature ?? config.llm.temperature,
-        max_tokens: options?.maxTokens ?? config.llm.maxTokens,
-        stream: true,
-      });
+    const stream = await client.chat.completions.create({
+      model: this.model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: options?.temperature ?? config.llm.temperature,
+      max_tokens: options?.maxTokens ?? config.llm.maxTokens,
+      stream: true,
+    });
 
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content ?? '';
-        if (content) {
-          fullContent += content;
-          onChunk?.(content);
-        }
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content ?? '';
+      if (content) {
+        yield content;
       }
-
-      return {
-        content: fullContent,
-      };
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`LLM 스트리밍 응답 생성 실패: ${error.message}`);
-      }
-      throw new Error(`LLM 스트리밍 응답 생성 실패: 알 수 없는 오류`);
     }
   }
 

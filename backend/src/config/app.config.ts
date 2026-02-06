@@ -63,7 +63,9 @@ const config: AppConfig = {
     ...configRoot.vectorStore,
     type: configRoot.vectorStore.type as 'chromadb',
   },
-  frontendUrl: 'http://localhost:3000',
+  frontendUrl: configRoot.frontendUrl || 'http://localhost:3003',
 };
+
+console.log('[Config] Loaded folders:', config.folders.length);
 
 export default config;

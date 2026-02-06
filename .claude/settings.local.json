@@ -15,7 +15,18 @@
       "Bash(git commit:*)",
       "Bash(taskkill:*)",
       "Bash(timeout:*)",
-      "Bash(docker run:*)"
+      "Bash(docker run:*)",
+      "Bash(cmd /c \"taskkill /PID 41200 /F\")",
+      "Bash(powershell -Command \"Stop-Process -Id 41200 -Force\")",
+      "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_-Force }\")",
+      "Bash(powershell -Command \"Stop-Process -Id 28164 -Force\")",
+      "Bash(Stop-Process -Id 49432 -Force)",
+      "Bash(powershell -Command \"Stop-Process -Id 49432 -Force\")",
+      "Bash(powershell -Command \"Stop-Process -Id 25320 -Force\")",
+      "Bash(powershell -Command \"Stop-Process -Id 58528 -Force\")",
+      "Bash(Stop-Process -Id 60616 -Force)",
+      "Bash(powershell -Command \"Stop-Process -Id 60616 -Force\")",
+      "Bash(powershell -Command \"Stop-Process -Id 48300 -Force\")"
     ]
   }
 }

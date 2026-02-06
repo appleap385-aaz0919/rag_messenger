@@ -1,171 +1,153 @@
+// import { chromaService } from '../vectorstore/chroma.service';
+// import { hnswService } from '../vectorstore/hnsw.service';
+import { inMemoryVectorStore } from '../vectorstore/in-memory-store';
 import { llmService } from '../llm/llm.factory';
 import { embeddingsService } from '../embeddings/embeddings.factory';
-import { inMemoryVectorStore } from '../vectorstore/in-memory-store';
-import type { ChatResponse, DocumentSource } from '../../types';
-import { v4 as uuidv4 } from 'uuid';
-import config from '../../config/app.config';
 
-/**
- * RAG 파이프라인 서비스
- * 검색 증강 생성을 통한 질문 응답
- */
-export class RAGPipelineService {
-  private systemPrompt = `당신은 "제프리"라는 이름의 AI 문서 어시스턴트입니다.
-주인님의 질문에 정중하고 친절하게 답변해주세요.
-제공된 문서 내용을 바탕으로 답변하되, 문서에 없는 내용은 "문서에서 찾을 수 없습니다"라고 말씀해주세요.
-답변은 다음 형식을 따르주세요:
+import { DocumentSource } from '../../types';
 
-주인님, 요청하신 정보를 찾았습니다.
-[AI 메신저의 답변 내용]
+export interface RagResponse {
+  answer: string;
+  sources: DocumentSource[];
+}
 
-참조 문서:
-파일명.ext
-D:\\...\\경로\\파일명.ext`;
+export class RagPipelineService {
+  async query(question: string): Promise<RagResponse> {
+    const startTime = Date.now();
+    try {
+      console.log(`[RAG] Starting query: "${question.substring(0, 30)}..."`);
 
-  /**
-   * 질문 처리 및 응답 생성
-   */
-  async query(question: string, _conversationId?: string): Promise<ChatResponse> {
-    // 0. 인덱스 상태 확인
-    const documentCount = await inMemoryVectorStore.count();
-    if (documentCount === 0) {
-      const provider = config.llm.provider;
-      const serverHint = provider === 'ollama'
-        ? 'Ollama 서버가 실행 중인지 확인해주세요: http://localhost:11434'
-        : 'API 설정이 올바른지 확인해주세요.';
+      // 1. Retrieve
+      console.time('[RAG] Retrieval');
+      const queryEmbeddingResult = await embeddingsService.embedText(question);
+      const results = await inMemoryVectorStore.search(queryEmbeddingResult.embedding, 5);
+      console.timeEnd('[RAG] Retrieval');
+
+      if (!results || results.length === 0) {
+        return {
+          answer: "죄송합니다. 관련 문서를 찾을 수 없어 답변드릴 수 없습니다.",
+          sources: []
+        };
+      }
+
+      // 2. Format Context & Generate Prompt
+      const context = results.map(d => d.content).join('\n\n---\n\n');
+      const prompt = this.buildPrompt(context, question);
+
+      // 3. Generate
+      console.time('[RAG] Generation');
+      const response = await llmService.complete(prompt);
+      console.timeEnd('[RAG] Generation');
+
+      const sources = this.extractSources(results);
+      console.log(`[RAG] Total query time: ${Date.now() - startTime}ms`);
 
       return {
-        messageId: uuidv4(),
-        content: `주인님, 아직 문서가 학습되지 않았습니다.\n\n좌측 메뉴에서 "재학습" 버튼을 눌러 문서를 먼저 학습시켜주세요.\n\n(${serverHint})`,
-        sources: [],
-        timestamp: new Date().toISOString(),
+        answer: response.content,
+        sources
       };
+    } catch (error) {
+      console.error('RAG Query Failed:', error);
+      throw error;
     }
-
-    // 1. 질문 임베딩
-    const { embedding: questionEmbedding } = await embeddingsService.embedText(question);
-
-    // 2. 관련 문서 검색
-    const searchResults = await inMemoryVectorStore.search(questionEmbedding, 5);
-
-    // 3. 컨텍스트 구성
-    const context = this.buildContext(searchResults);
-
-    // 4. 프롬프트 구성
-    const prompt = this.buildPrompt(question, context);
-
-    // 5. LLM 응답 생성
-    const { content } = await llmService.chat([
-      { role: 'system', content: this.systemPrompt },
-      { role: 'user', content: prompt },
-    ]);
-
-    // 6. 소스 추출
-    const sources = this.extractSources(searchResults);
-
-    return {
-      messageId: uuidv4(),
-      content,
-      sources,
-      timestamp: new Date().toISOString(),
-    };
   }
 
-  /**
-   * 검색 결과에서 컨텍스트 구성
-   */
-  private buildContext(searchResults: Array<{ content: string; similarity: number }>): string {
-    if (searchResults.length === 0) {
-      return '관련 문서를 찾을 수 없습니다.';
-    }
+  async *queryStream(question: string): AsyncGenerator<{ type: 'chunk' | 'sources' | 'error'; content: any }> {
+    const startTime = Date.now();
+    try {
+      console.log(`[RAG-Stream] Starting: "${question.substring(0, 30)}..."`);
 
-    // 유사도가 0.3 이상인 결과만 사용
-    const relevantResults = searchResults.filter((r) => r.similarity > 0.3);
+      console.time('[RAG-Stream] Retrieval');
+      const queryEmbeddingResult = await embeddingsService.embedText(question);
+      const rawResults = await inMemoryVectorStore.search(queryEmbeddingResult.embedding, 5);
 
-    if (relevantResults.length === 0) {
-      return '관련 문서를 찾을 수 없습니다.';
-    }
+      // Log all similarities for debugging
+      rawResults.forEach((r, i) => {
+        console.log(`[RAG-Log] Rank ${i + 1}: Sim=${r.similarity.toFixed(4)} | File=${r.metadata.fileName || r.metadata.filename}`);
+      });
 
-    return relevantResults
-      .map((r, i) => `[문서 ${i + 1}]\n${r.content}`)
-      .join('\n\n');
-  }
+      // Strongly filter
+      const results = rawResults.filter(r => r.similarity > 0.75); // Even stricter
+      console.timeEnd('[RAG-Stream] Retrieval');
 
-  /**
-   * 프롬프트 구성
-   */
-  private buildPrompt(question: string, context: string): string {
-    return `다음 문서를 참고하여 질문에 답변해주세요:
-
-${context}
-
-질문: ${question}`;
-  }
-
-  /**
-   * 검색 결과에서 소스 정보 추출
-   */
-  private extractSources(
-    searchResults: Array<{
-      content: string;
-      metadata: { filePath: string; fileName: string; chunkIndex: number; fileType: string };
-      similarity: number;
-    }>,
-  ): DocumentSource[] {
-    // 중복 제거 및 상위 3개 반환
-    const uniqueSources = new Map<string, DocumentSource>();
-
-    for (const result of searchResults) {
-      const key = result.metadata.filePath;
-      if (!uniqueSources.has(key)) {
-        uniqueSources.set(key, {
-          filePath: result.metadata.filePath,
-          fileName: result.metadata.fileName,
-          chunkIndex: result.metadata.chunkIndex,
-          relevance: result.similarity,
-        });
+      if (!results || results.length === 0) {
+        console.log('[RAG-Stream] No related documents found. Falling back to general knowledge.');
+        // If no documents found, proceed with empty context instead of failing
       }
-    }
 
-    return Array.from(uniqueSources.values()).slice(0, 3);
+      const sources = this.extractSources(results || []);
+      if (sources.length > 0) {
+        console.log(`[RAG-Stream] Retrieved ${results.length} documents. Top source: ${sources[0]?.fileName}`);
+        yield { type: 'sources', content: sources };
+      }
+
+      // 2. Build Prompt
+      const context = results.map(d => d.content).join('\n\n---\n\n');
+      const prompt = this.buildPrompt(context, question);
+
+      // 3. Stream Generate
+      console.log(`[RAG-Stream] Generation started (Prompt length: ${prompt.length})`);
+      const startGen = Date.now();
+
+      const stream = llmService.streamComplete(prompt);
+
+      let chunkCount = 0;
+      for await (const chunk of stream) {
+        chunkCount++;
+        if (chunkCount === 1) console.log(`[RAG-Stream] First chunk received in ${Date.now() - startGen}ms`);
+        yield { type: 'chunk', content: chunk };
+      }
+
+      console.log(`[RAG-Stream] Generation finished. Total chunks: ${chunkCount}, Time: ${Date.now() - startGen}ms`);
+      console.log(`[RAG-Stream] Total time: ${Date.now() - startTime}ms`);
+
+    } catch (error) {
+      console.error('[RAG-Stream] Failed:', error);
+      yield { type: 'error', content: error instanceof Error ? error.message : String(error) };
+    }
   }
 
-  /**
-   * 스트리밍 응답 생성 (선택적 구현)
-   */
-  async queryStream(
-    question: string,
-    onChunk: (chunk: string) => void,
-  ): Promise<ChatResponse> {
-    // 1. 질문 임베딩
-    const { embedding: questionEmbedding } = await embeddingsService.embedText(question);
+  private buildPrompt(context: string, question: string): string {
+    const isGreeting = /^(안녕|하이|반가워|hi|hello)/i.test(question);
 
-    // 2. 관련 문서 검색
-    const searchResults = await inMemoryVectorStore.search(questionEmbedding, 5);
+    let instructions = '';
+    if (isGreeting) {
+      instructions = '주인님께 정중하게 인사하고 도움을 제안하세요.';
+    } else if (!context) {
+      instructions = '아는 범위 내에서 비서처럼 정중하게 답변하세요.';
+    } else {
+      instructions = '제공된 정보를 바탕으로 주인님의 질문에 한국어로 명확히 답변하세요.';
+    }
 
-    // 3. 컨텍스트 구성
-    const context = this.buildContext(searchResults);
+    const system = `당신은 주인님을 모시는 AI 비서 '제프리'입니다. 
+항상 짧고 정중하게 한국어로 답변하세요.
+지침: ${instructions}`;
 
-    // 4. 프롬프트 구성
-    const prompt = this.buildPrompt(question, context);
+    const contextPart = context ? `\n\n[참고 문서]\n${context}` : '';
 
-    // 5. LLM 스트리밍 응답
-    const { content } = await llmService.streamComplete?.(
-      prompt,
-      onChunk,
-      { temperature: 0.7 },
-    ) || { content: '' };
+    return `<|system|>\n${system}<|end|>\n<|user|>\n${question}${contextPart}<|end|>\n<|assistant|>\n`;
+  }
 
-    // 6. 소스 추출
-    const sources = this.extractSources(searchResults);
-
-    return {
-      messageId: uuidv4(),
-      content,
-      sources,
-      timestamp: new Date().toISOString(),
-    };
+  private extractSources(results: any[]): DocumentSource[] {
+    const uniqueSources = new Map<string, DocumentSource>();
+    results.forEach((res) => {
+      const m = res.metadata;
+      // Indexing uses 'source' and 'filename' (fixed in IndexingService as well)
+      const path = m.filePath || m.source;
+      const name = m.fileName || m.filename;
+      if (path && name) {
+        if (!uniqueSources.has(path)) {
+          uniqueSources.set(path, {
+            filePath: path,
+            fileName: name,
+            chunkIndex: m.chunkIndex,
+            relevance: res.similarity
+          });
+        }
+      }
+    });
+    return Array.from(uniqueSources.values());
   }
 }
 
-export const ragService = new RAGPipelineService();
+export const ragPipelineService = new RagPipelineService();

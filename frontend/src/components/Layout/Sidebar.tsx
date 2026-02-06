@@ -29,6 +29,25 @@ export function Sidebar() {
     }
   };
 
+  const handleStopIndexing = async () => {
+    try {
+      await documentsApi.stopIndex();
+    } catch (error) {
+      console.error('인덱싱 중단 오류:', error);
+    }
+  };
+
+  const handleClearIndex = async () => {
+    if (window.confirm('모든 인덱스 데이터를 삭제하시겠습니까? 대화가 불가능해질 수 있습니다.')) {
+      try {
+        await documentsApi.clearIndex();
+        alert('인덱스가 초기화되었습니다.');
+      } catch (error) {
+        console.error('인덱스 초기화 오류:', error);
+      }
+    }
+  };
+
   return (
     <>
       <motion.aside
@@ -63,14 +82,23 @@ export function Sidebar() {
 
         {/* 하단 메뉴 */}
         <div className="p-3 border-t border-gray-200 space-y-1">
-          <button
-            onClick={handleIndexing}
-            disabled={isIndexing}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm text-gray-700 disabled:opacity-50"
-          >
-            <FiRefreshCw className={isIndexing ? 'animate-spin' : ''} />
-            {isIndexing ? '인덱싱 중...' : '재학습'}
-          </button>
+          {isIndexing ? (
+            <button
+              onClick={handleStopIndexing}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors text-sm text-red-600"
+            >
+              <FiRefreshCw className="animate-spin" />
+              중단하기
+            </button>
+          ) : (
+            <button
+              onClick={handleIndexing}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm text-gray-700"
+            >
+              <FiRefreshCw />
+              재학습
+            </button>
+          )}
           <button
             onClick={toggleRightPanel}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm text-gray-700"
@@ -84,6 +112,12 @@ export function Sidebar() {
           >
             <FiSettings />
             설정
+          </button>
+          <button
+            onClick={handleClearIndex}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors text-xs text-red-400 mt-4"
+          >
+            인덱스 초기화
           </button>
         </div>
       </motion.aside>

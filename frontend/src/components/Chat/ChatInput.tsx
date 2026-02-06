@@ -4,11 +4,10 @@ import { motion } from 'framer-motion';
 import { chatApi } from '../../services/api';
 import { useChatStore } from '../../store/chat-store';
 import { v4 as uuidv4 } from 'uuid';
-import axios from 'axios';
 
 export function ChatInput() {
   const [message, setMessage] = useState('');
-  const { addMessage, setTyping } = useChatStore();
+  const { addMessage, updateMessage, setTyping } = useChatStore();
 
   const handleSend = async () => {
     if (!message.trim()) return;
@@ -24,36 +23,36 @@ export function ChatInput() {
     setMessage('');
     setTyping(true);
 
+    const assistantId = uuidv4();
+    const initialAssistantMessage = {
+      id: assistantId,
+      role: 'assistant' as const,
+      content: '',
+      timestamp: new Date().toISOString(),
+      sources: [],
+    };
+    addMessage(initialAssistantMessage);
+
+    let fullContent = '';
+
     try {
-      const response = await chatApi.sendMessage({ message: userMessage.content });
-
-      const assistantMessage = {
-        id: response.messageId,
-        role: 'assistant' as const,
-        content: response.content,
-        timestamp: response.timestamp,
-        sources: response.sources,
-      };
-
-      addMessage(assistantMessage);
+      await chatApi.sendMessageStream(
+        { message: userMessage.content },
+        (packet) => {
+          if (packet.type === 'chunk') {
+            fullContent += packet.content;
+            updateMessage(assistantId, { content: fullContent });
+          } else if (packet.type === 'sources') {
+            updateMessage(assistantId, { sources: packet.content });
+          } else if (packet.type === 'error') {
+            updateMessage(assistantId, { content: `오류가 발생했습니다: ${packet.content}` });
+          }
+        }
+      );
     } catch (error) {
       console.error('메시지 전송 오류:', error);
-
-      // 에러 메시지 추출
-      let errorMessage = '죄송합니다. 오류가 발생했습니다. 다시 시도해 주세요.';
-
-      if (axios.isAxiosError(error) && error.response?.data) {
-        const errorData = error.response.data as { error?: { message?: string } };
-        if (errorData.error?.message) {
-          errorMessage = errorData.error.message;
-        }
-      }
-
-      addMessage({
-        id: uuidv4(),
-        role: 'assistant',
-        content: errorMessage,
-        timestamp: new Date().toISOString(),
+      updateMessage(assistantId, {
+        content: '죄송합니다. 서버와 연결하는 중 오류가 발생했습니다.'
       });
     } finally {
       setTyping(false);

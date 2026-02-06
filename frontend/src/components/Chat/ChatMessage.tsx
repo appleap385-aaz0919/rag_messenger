@@ -24,11 +24,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
       <div className={`max-w-2xl ${isUser ? 'order-first' : ''}`}>
         <div
-          className={`px-4 py-3 rounded-2xl ${
-            isUser
+          className={`px-4 py-3 rounded-2xl ${isUser
               ? 'bg-secondary text-white rounded-br-md'
               : 'bg-gray-100 text-gray-800 rounded-bl-md'
-          }`}
+            }`}
         >
           <p className="whitespace-pre-wrap">{message.content}</p>
         </div>
@@ -43,10 +42,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
         )}
 
         <div className="mt-1 text-xs text-gray-400">
-          {new Date(message.timestamp).toLocaleTimeString('ko-KR', {
+          {message.timestamp ? new Date(message.timestamp).toLocaleTimeString('ko-KR', {
             hour: '2-digit',
             minute: '2-digit',
-          })}
+          }) : ''}
         </div>
       </div>
 

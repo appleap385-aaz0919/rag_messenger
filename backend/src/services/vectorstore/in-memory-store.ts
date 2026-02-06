@@ -1,4 +1,8 @@
 import type { DocumentChunk, VectorSearchResult } from '../../types';
+import fs from 'fs/promises';
+import path from 'path';
+import { embeddingsService } from '../embeddings/embeddings.factory';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * 인메모리 벡터 저장소 서비스
@@ -6,25 +10,110 @@ import type { DocumentChunk, VectorSearchResult } from '../../types';
  */
 export class InMemoryVectorStore {
   private documents: Map<string, DocumentChunk> = new Map();
+  private filePath: string;
 
   constructor() {
-    // 인메모리 저장소
+    this.filePath = path.resolve(process.cwd(), 'data', 'vectorstore.json');
   }
 
   /**
    * 컬렉션 초기화 (인메모리이므로 별도 초기화 불필요)
    */
   async initialize(): Promise<void> {
-    // 인메모리이므로 별도 초기화 불필요
+    try {
+      await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+      const data = await fs.readFile(this.filePath, 'utf-8');
+      const json = JSON.parse(data);
+      this.documents = new Map(json);
+      console.log(`Loaded ${this.documents.size} documents from ${this.filePath}`);
+    } catch (error) {
+      console.log('No existing vector store found, starting fresh.');
+    }
+  }
+
+  private saveTimeout: NodeJS.Timeout | null = null;
+
+  private isSaving = false;
+
+  async save(force = false): Promise<void> {
+    // If not forced and something like indexing is happening, we might want to skip
+    // For now, let's keep the debounce but make sure it doesn't overlap
+    if (this.isSaving) return;
+
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+
+    return new Promise((resolve) => {
+      this.saveTimeout = setTimeout(async () => {
+        try {
+          this.isSaving = true;
+          // Use setImmediate to let other tasks run before stringification
+          await new Promise(resolve => setImmediate(resolve));
+
+          console.log('[InMemoryStore] Starting serialization...');
+          const start = Date.now();
+          const entries = Array.from(this.documents.entries());
+          const json = JSON.stringify(entries);
+          const end = Date.now();
+          console.log(`[InMemoryStore] Serialization took ${end - start}ms`);
+
+          await fs.writeFile(this.filePath, json, 'utf-8');
+          console.log(`Saved ${this.documents.size} documents to ${this.filePath}`);
+
+          this.isSaving = false;
+          this.saveTimeout = null;
+          resolve();
+        } catch (error) {
+          console.error('Failed to save vector store:', error);
+          this.isSaving = false;
+          this.saveTimeout = null;
+          resolve();
+        }
+      }, force ? 0 : 5000); // 5 second debounce for regular saves
+    });
+  }
+
+  async addDocuments(documents: { pageContent: string; metadata: any }[], shouldSave = true, onProgress?: () => Promise<void>) {
+    if (!documents.length) return;
+
+    // 1. Generate embeddings
+    const texts = documents.map(doc => doc.pageContent);
+    const embeddingResults = await embeddingsService.embedBatch(texts, onProgress);
+
+    // 2. Create chunks and add to map
+    for (let i = 0; i < documents.length; i++) {
+      const doc = documents[i];
+      const embedding = embeddingResults?.[i]?.embedding; // Safety check
+      if (!embedding) continue;
+
+      const id = uuidv4();
+
+      const chunk: DocumentChunk = {
+        id,
+        content: doc.pageContent,
+        metadata: doc.metadata,
+        embedding: embedding
+      };
+
+      this.documents.set(id, chunk);
+    }
+
+    // 3. Save conditionally
+    if (shouldSave) {
+      await this.save();
+    }
+    console.log(`Added ${documents.length} documents to In-Memory store (Total: ${this.documents.size})`);
   }
 
   /**
-   * 문서 청크 추가
+   * 문서 청크 추가 (Low level)
    */
   async addChunks(chunks: DocumentChunk[]): Promise<void> {
     for (const chunk of chunks) {
       this.documents.set(chunk.id, chunk);
     }
+    await this.save();
   }
 
   /**
@@ -77,6 +166,7 @@ export class InMemoryVectorStore {
    */
   async clear(): Promise<void> {
     this.documents.clear();
+    await this.save();
   }
 
   /**
@@ -95,6 +185,7 @@ export class InMemoryVectorStore {
         this.documents.delete(id);
       }
     }
+    await this.save();
   }
 }
 

@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit --skipLibCheck"
   },
   "keywords": [
     "ai",
@@ -19,6 +19,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@langchain/core": "^1.1.19",
+    "@langchain/textsplitters": "^1.0.1",
     "@types/jsonwebtoken": "^9.0.10",
     "chokidar": "^4.0.0",
     "chromadb": "^1.8.1",
@@ -28,6 +30,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
+    "langchain": "^1.2.18",
     "mammoth": "^1.7.1",
     "ollama": "^0.5.0",
     "openai": "^4.104.0",

@@ -1,26 +1,18 @@
 import fs from 'fs/promises';
+import path from 'path';
 
-/**
- * 텍스트 파서
- * TXT, MD, XML 등 텍스트 기반 파일 처리
- */
 export class TextParser {
   async parse(filePath: string): Promise<string> {
-    return await fs.readFile(filePath, 'utf-8');
-  }
-
-  extractMetadata(filePath: string): Record<string, any> {
-    const ext = filePath.split('.').pop()?.toLowerCase() || 'txt';
-
-    const mimeTypes: Record<string, string> = {
-      txt: 'text/plain',
-      md: 'text/markdown',
-      xml: 'application/xml',
-    };
-
-    return {
-      type: ext,
-      mimeType: mimeTypes[ext] || 'text/plain',
-    };
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      return content;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Text 파일 파싱 실패 (${path.basename(filePath)}): ${error.message}`);
+      }
+      throw new Error(`Text 파일 파싱 실패 (${path.basename(filePath)}): 알 수 없는 오류`);
+    }
   }
 }
+
+export const textParser = new TextParser();
