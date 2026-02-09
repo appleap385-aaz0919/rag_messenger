@@ -1,7 +1,7 @@
 import configRoot from '../../../config.json';
 
 interface LLMConfig {
-  provider: 'ollama' | 'openai' | 'zhipu';
+  provider: 'ollama' | 'openai' | 'zhipu' | 'anthropic';
   model: string;
   baseUrl: string;
   apiKey?: string;
@@ -53,7 +53,7 @@ const config: AppConfig = {
   ...configRoot,
   llm: {
     ...configRoot.llm,
-    provider: configRoot.llm.provider as 'ollama' | 'openai' | 'zhipu',
+    provider: configRoot.llm.provider as 'ollama' | 'openai' | 'zhipu' | 'anthropic',
   },
   embeddings: {
     ...configRoot.embeddings,

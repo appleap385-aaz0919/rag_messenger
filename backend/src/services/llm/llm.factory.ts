@@ -2,6 +2,7 @@ import config from '../../config/app.config';
 import { OllamaService } from './ollama.service';
 import { OpenAIService } from './openai.service';
 import { ZhipuService } from './zhipu.service';
+import { AnthropicService } from './anthropic.service';
 import type { ILLMService } from './base.interface';
 
 /**
@@ -22,6 +23,9 @@ export class LLMFactory {
           break;
         case 'zhipu':
           this.instance = new ZhipuService();
+          break;
+        case 'anthropic':
+          this.instance = new AnthropicService();
           break;
         default:
           this.instance = new OllamaService();

@@ -4,9 +4,10 @@
     "host": "localhost"
   },
   "llm": {
-    "provider": "ollama",
-    "model": "phi3:latest",
-    "baseUrl": "http://localhost:11434",
+    "provider": "anthropic",
+    "model": "claude-3-sonnet-20240229",
+    "apiKey": "9975dafe12f8498aa3da36654e33a206.Ot0lub5Byg36e3Qu",
+    "baseUrl": "https://api.z.ai/api/anthropic",
     "temperature": 0.1,
     "maxTokens": 2000
   },

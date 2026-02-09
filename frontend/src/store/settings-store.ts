@@ -12,9 +12,9 @@ interface SettingsStore {
 }
 
 const defaultLLMSettings: LLMSettings = {
-  provider: 'ollama',
-  model: 'llama3.2:latest',
-  baseUrl: 'http://localhost:11434',
+  provider: 'zhipu',
+  model: 'glm-4',
+  baseUrl: 'https://api.z.ai/api/anthropic',
   temperature: 0.7,
   maxTokens: 2000,
 };
