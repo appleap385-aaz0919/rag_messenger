@@ -91,7 +91,38 @@ export class ChatController {
     const assistantMessageId = uuidv4();
 
     try {
-      // 1. Save User Message
+      // 1. Handle Commands (e.g., /재학습, /상태)
+      if (message.startsWith('/')) {
+        const command = message.split(' ')[0].substring(1);
+        let systemResponse = '';
+
+        if (command === '재학습') {
+          systemResponse = '예, 주인님. 즉시 학습을 시작합니다. 잠시만 기다려 주십시오.';
+          indexingService.indexFolders(req.body.folders || config.folders || []).catch(console.error);
+        } else if (command === '상태') {
+          const status = indexingService.getStatus();
+          const count = await inMemoryVectorStore.count();
+          systemResponse = `주인님, 현재 시스템 상태를 보고드립니다.\n- 상태: ${status.status === 'indexing' ? '학습 중' : '대기 중'}\n- 학습된 문서: ${count}개\n- 진행률: ${status.progress.current}/${status.progress.total}`;
+        } else if (command === 'clear' || command === '초기화') {
+          await inMemoryVectorStore.clear();
+          systemResponse = '주인님, 모든 학습 데이터를 초기화했습니다.';
+        } else {
+          systemResponse = `죄송합니다 주인님, '${command}'는 알 수 없는 명령입니다.`;
+        }
+
+        // 1-1. Save Command & System Message
+        await chatHistoryStore.addMessage(targetConversationId, { id: uuidv4(), role: 'user', content: message, timestamp: new Date() });
+        const sysMsg = { id: assistantMessageId, role: 'assistant' as const, content: systemResponse, timestamp: new Date() };
+        await chatHistoryStore.addMessage(targetConversationId, sysMsg);
+
+        // 1-2. Stream Response for UI consistency
+        res.write(`data: ${JSON.stringify({ type: 'chunk', content: systemResponse })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'done', content: { id: assistantMessageId, conversationId: targetConversationId, content: systemResponse, sources: [] } })}\n\n`);
+        res.end();
+        return;
+      }
+
+      // 2. Save User Message
       await chatHistoryStore.addMessage(targetConversationId, {
         id: uuidv4(),
         role: 'user',
@@ -99,7 +130,7 @@ export class ChatController {
         timestamp: new Date()
       });
 
-      // 2. Query Stream
+      // 3. Query Stream (normal message)
       indexingService.pauseIndexing();
       const stream = ragPipelineService.queryStream(message);
 

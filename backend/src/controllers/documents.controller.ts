@@ -18,6 +18,7 @@ export class DocumentsController {
       const count = await inMemoryVectorStore.count();
 
       res.json({
+        success: true,
         folders: config.folders,
         watchedPaths: watcherService.getWatchedPaths(),
         indexedDocuments: count,
@@ -48,6 +49,7 @@ export class DocumentsController {
 
       // Respond immediately
       res.json({
+        success: true,
         message: 'Indexing started',
         folders: folders
       });
@@ -67,6 +69,7 @@ export class DocumentsController {
     const count = await inMemoryVectorStore.count();
 
     res.json({
+      success: true,
       status: status.status,
       progress: status.progress,
       indexedCount: count
@@ -80,14 +83,20 @@ export class DocumentsController {
 
   async stopIndex(req: Request, res: Response) {
     indexingService.stopIndexing();
-    res.json({ message: 'Indexing stop requested' });
+    res.json({
+      success: true,
+      message: 'Indexing stop requested'
+    });
   }
 
   async clearIndex(req: Request, res: Response) {
     try {
       await inMemoryVectorStore.clear();
       await inMemoryVectorStore.save();
-      res.json({ message: 'Vector store cleared' });
+      res.json({
+        success: true,
+        message: 'Vector store cleared'
+      });
     } catch (error) {
       res.status(500).json({ error: 'Failed to clear index' });
     }
