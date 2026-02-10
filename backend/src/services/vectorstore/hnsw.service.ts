@@ -1,11 +1,10 @@
+// @ts-ignore — optional dependency, not installed
 import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
 import { Document } from "@langchain/core/documents";
 import { Embeddings } from "@langchain/core/embeddings";
 import path from 'path';
 import fs from 'fs/promises';
-import config from '../../config/app.config';
 import { embeddingsService } from '../embeddings/embeddings.factory';
-import { EmbeddingResult } from "../../types";
 
 // Adaptor to make our EmbeddingsService compatible with LangChain's Embeddings interface
 class LangChainEmbeddingsAdaptor extends Embeddings {

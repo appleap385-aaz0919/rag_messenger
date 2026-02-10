@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import config from './config/app.config';
 import routes from './routes';
-import { watcherService } from './services/file-watcher/watcher.service';
 import { inMemoryVectorStore } from './services/vectorstore/in-memory-store';
 import { chatHistoryStore } from './services/chat/history-store';
 

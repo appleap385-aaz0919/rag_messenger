@@ -72,7 +72,7 @@ export class DocumentProcessor {
     }
 
     // 청킹
-    const chunks = chunkingService.chunkText(text, {
+    const chunks = await chunkingService.createChunks(text, {
       filePath,
       fileName: path.basename(filePath),
       chunkIndex: 0,

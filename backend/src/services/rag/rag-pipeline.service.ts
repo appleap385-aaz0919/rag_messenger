@@ -57,32 +57,116 @@ export class RagPipelineService {
     try {
       console.log(`[RAG-Stream] Starting: "${question.substring(0, 30)}..."`);
 
-      console.time('[RAG-Stream] Retrieval');
-      const queryEmbeddingResult = await embeddingsService.embedText(question);
-      const rawResults = await inMemoryVectorStore.search(queryEmbeddingResult.embedding, 5);
+      // 인사나 간단한 질문은 문서 검색 건너뛰기 (패턴 확장)
+      const isGreeting = /^(안녕|하이|반가워|hi|hello|좋은\s*(아침|저녁|오후)|잘\s*지내|감사합니다|고마워|수고|잘\s*자|바이|bye|thanks|thank you)/i.test(question);
+      const isSimpleChat = question.length < 10 && !/문서|파일|검색|찾아|알려|뭐야|어때|무엇|어디|언제|누구|방법|절차|규정/.test(question);
 
-      // Log all similarities for debugging
-      rawResults.forEach((r, i) => {
-        console.log(`[RAG-Log] Rank ${i + 1}: Sim=${r.similarity.toFixed(4)} | File=${r.metadata.fileName || r.metadata.filename}`);
-      });
+      let results: any[] = [];
+      let sources: any[] = [];
 
-      // Strongly filter
-      const results = rawResults.filter(r => r.similarity > 0.75); // Even stricter
-      console.timeEnd('[RAG-Stream] Retrieval');
+      if (!isGreeting && !isSimpleChat) {
+        console.time('[RAG-Stream] Retrieval');
 
-      if (!results || results.length === 0) {
-        console.log('[RAG-Stream] No related documents found. Falling back to general knowledge.');
-        // If no documents found, proceed with empty context instead of failing
+        // 1. 키워드 추출 및 전처리
+        let processedQuestion = question
+          .replace(/[?？!！.。,，]/g, '')
+          // 년월 형식 변환: "2025년 3월" → "2025.03"
+          .replace(/(\d{4})년\s*(\d{1,2})월/g, (_, year, month) => `${year}.${month.padStart(2, '0')}`)
+          // 숫자만 있는 월도 처리: "3월" → "03"
+          .replace(/(\d{1,2})월/g, (_, month) => month.padStart(2, '0'));
+
+        const stopWords = ['내용', '알려줘', '뭐야', '있어', '대한', '관련', '주세요', '해줘', '찾아줘', '폴더에서', '폴더', '파일', '문서', '에서', '대해', '대해서', '어떤', '무슨', '보여줘', '검색', '안에', '속에', '폴더의', '폴더에', '것', '거', '좀', '하나', '뭔가', '무엇', '어떻게', '왜'];
+        const keywords = processedQuestion
+          .split(/\s+/)
+          .filter(w => w.length >= 2 && !stopWords.includes(w));
+        console.log(`[RAG-Hybrid] Keywords: ${keywords.join(', ')}`);
+
+        // 2. 키워드 기반 검색 (파일명/내용 매칭)
+        const keywordResults = inMemoryVectorStore.searchByKeyword(keywords, 8);
+        console.log(`[RAG-Hybrid] Keyword search found ${keywordResults.length} results`);
+        keywordResults.forEach((r, i) => {
+          console.log(`[RAG-Hybrid] KW Rank ${i + 1}: Score=${r.similarity.toFixed(4)} | File=${r.metadata.fileName}`);
+        });
+
+        // 3. 벡터 검색
+        const queryEmbeddingResult = await embeddingsService.embedText(question);
+        const vectorResults = await inMemoryVectorStore.search(queryEmbeddingResult.embedding, 8);
+
+        // Log vector similarities for debugging
+        vectorResults.forEach((r, i) => {
+          console.log(`[RAG-Log] Vector Rank ${i + 1}: Sim=${r.similarity.toFixed(4)} | File=${r.metadata.fileName || r.metadata.filename}`);
+        });
+
+        // 4. RRF(Reciprocal Rank Fusion) 기반 하이브리드 결과 합산
+        const RRF_K = 60; // RRF 상수
+        const scoreMap = new Map<string, { score: number; result: any; fileKey: string }>();
+
+        // 키워드 결과 RRF 점수 (키워드 매칭 가중치 = 1.2)
+        keywordResults.forEach((r, rank) => {
+          const chunkKey = `${r.metadata.filePath || r.metadata.source}_${r.metadata.chunkIndex || 0}`;
+          const fileKey = r.metadata.filePath || r.metadata.source || '';
+          const rrfScore = 1.2 / (RRF_K + rank + 1);
+          const existing = scoreMap.get(chunkKey);
+          if (existing) {
+            existing.score += rrfScore;
+          } else {
+            scoreMap.set(chunkKey, { score: rrfScore, result: r, fileKey });
+          }
+        });
+
+        // 벡터 결과 RRF 점수 (유사도 임계값 0.45 이상만)
+        vectorResults.forEach((r, rank) => {
+          if (r.similarity < 0.45) return; // 낮은 유사도 문서 제외
+          const chunkKey = `${r.metadata.filePath || r.metadata.source}_${r.metadata.chunkIndex || 0}`;
+          const fileKey = r.metadata.filePath || r.metadata.source || '';
+          const rrfScore = 1.0 / (RRF_K + rank + 1);
+          const existing = scoreMap.get(chunkKey);
+          if (existing) {
+            existing.score += rrfScore;
+          } else {
+            scoreMap.set(chunkKey, { score: rrfScore, result: r, fileKey });
+          }
+        });
+
+        // 점수 순 정렬
+        const sortedEntries = Array.from(scoreMap.values()).sort((a, b) => b.score - a.score);
+
+        // 5. 파일당 최대 3개 청크 제한 (다양성 확보)
+        const fileChunkCount = new Map<string, number>();
+        const combinedResults: any[] = [];
+
+        for (const entry of sortedEntries) {
+          const currentCount = fileChunkCount.get(entry.fileKey) || 0;
+          if (currentCount >= 3) continue; // 한 파일에서 최대 3청크
+
+          fileChunkCount.set(entry.fileKey, currentCount + 1);
+          combinedResults.push({ ...entry.result, rrf_score: entry.score });
+
+          if (combinedResults.length >= 5) break; // 최대 5개
+        }
+
+        results = combinedResults;
+        console.timeEnd('[RAG-Stream] Retrieval');
+        console.log(`[RAG-Hybrid] Combined results: ${results.length}`);
+
+        if (!results || results.length === 0) {
+          console.log('[RAG-Stream] No related documents found. Falling back to general knowledge.');
+        }
+
+        sources = this.extractSources(results || []);
+        if (sources.length > 0) {
+          console.log(`[RAG-Stream] Retrieved ${results.length} documents. Top source: ${sources[0]?.fileName}`);
+          yield { type: 'sources', content: sources };
+        }
+      } else {
+        console.log('[RAG-Stream] Greeting/simple chat detected. Skipping document retrieval.');
       }
 
-      const sources = this.extractSources(results || []);
-      if (sources.length > 0) {
-        console.log(`[RAG-Stream] Retrieved ${results.length} documents. Top source: ${sources[0]?.fileName}`);
-        yield { type: 'sources', content: sources };
-      }
-
-      // 2. Build Prompt
-      const context = results.map(d => d.content).join('\n\n---\n\n');
+      // 2. Build Prompt - 파일명을 포함하여 LLM이 출처를 알 수 있게 함
+      const context = results.map(d => {
+        const fileName = d.metadata?.fileName || d.metadata?.filename || '알수없음';
+        return `[출처: ${fileName}]\n${d.content}`;
+      }).join('\n\n---\n\n');
       const prompt = this.buildPrompt(context, question);
 
       // 3. Stream Generate
@@ -108,24 +192,43 @@ export class RagPipelineService {
   }
 
   private buildPrompt(context: string, question: string): string {
-    const isGreeting = /^(안녕|하이|반가워|hi|hello)/i.test(question);
+    const isGreeting = /^(안녕|하이|반가워|hi|hello|감사|고마워|수고|잘\s*자|바이|bye|thanks)/i.test(question);
 
-    let instructions = '';
     if (isGreeting) {
-      instructions = '주인님께 정중하게 인사하고 도움을 제안하세요.';
-    } else if (!context) {
-      instructions = '아는 범위 내에서 비서처럼 정중하게 답변하세요.';
-    } else {
-      instructions = '제공된 정보를 바탕으로 주인님의 질문에 한국어로 명확히 답변하세요.';
+      return `당신은 주인님을 모시는 AI 비서 '제프리'입니다.
+주인님께 정중하게 인사하고 도움을 제안하세요.
+
+사용자: ${question}`;
     }
 
-    const system = `당신은 주인님을 모시는 AI 비서 '제프리'입니다. 
-항상 짧고 정중하게 한국어로 답변하세요.
-지침: ${instructions}`;
+    if (!context || context.trim().length === 0) {
+      return `당신은 주인님을 모시는 AI 비서 '제프리'입니다.
 
-    const contextPart = context ? `\n\n[참고 문서]\n${context}` : '';
+규칙:
+- 짧고 정중하게 한국어로 답변하세요.
+- 모르는 것은 솔직히 말씀드리세요.
 
-    return `<|system|>\n${system}<|end|>\n<|user|>\n${question}${contextPart}<|end|>\n<|assistant|>\n`;
+사용자 질문: ${question}`;
+    }
+
+    // 문서가 있는 경우: 문서 내용을 먼저 제시하고 강력하게 지시
+    return `당신은 주인님을 모시는 AI 비서 '제프리'입니다.
+
+다음은 주인님의 질문과 관련된 참고 문서 내용입니다:
+
+=== 참고 문서 시작 ===
+${context}
+=== 참고 문서 끝 ===
+
+규칙:
+1. 반드시 위 참고 문서 내용만을 바탕으로 답변하세요.
+2. 문서에 없는 정보는 추측하지 말고 "문서에 해당 정보가 없습니다"라고 말씀드리세요.
+3. 답변 시 관련 출처 파일명을 언급해 주세요.
+4. 문서 내용을 인용하거나 요약하여 구체적으로 답변하세요.
+5. 짧고 정중하게 한국어로 답변하세요.
+6. 내부 사고 과정을 출력하지 마세요.
+
+사용자 질문: ${question}`;
   }
 
   private extractSources(results: any[]): DocumentSource[] {

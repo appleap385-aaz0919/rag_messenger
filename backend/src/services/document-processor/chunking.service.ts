@@ -1,13 +1,17 @@
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import config from '../../config/app.config';
 
 export class ChunkingService {
   private splitter: RecursiveCharacterTextSplitter;
 
-  constructor(chunkSize: number = 1000, chunkOverlap: number = 200) {
+  constructor(
+    chunkSize: number = config.chunking?.chunkSize || 1500,
+    chunkOverlap: number = config.chunking?.chunkOverlap || 300
+  ) {
     this.splitter = new RecursiveCharacterTextSplitter({
       chunkSize,
       chunkOverlap,
-      separators: ['\n\n', '\n', ' ', ''],
+      separators: ['\n\n', '\n', '。', '. ', ' ', ''],
     });
   }
 

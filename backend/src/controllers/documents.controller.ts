@@ -13,7 +13,7 @@ const SUPPORTED_EXTENSIONS = [
 ];
 
 export class DocumentsController {
-  async getFiles(req: Request, res: Response) {
+  async getFiles(_req: Request, res: Response) {
     try {
       const count = await inMemoryVectorStore.count();
 
@@ -30,21 +30,23 @@ export class DocumentsController {
     }
   }
 
-  async indexFiles(req: Request, res: Response) {
+  async indexFiles(req: Request, res: Response): Promise<void> {
     try {
       const status = indexingService.getStatus();
       if (status.status === 'indexing') {
-        return res.status(409).json({
+        res.status(409).json({
           message: 'Indexing already in progress',
           progress: status.progress
         });
+        return;
       }
 
       // Get folders from request body or config
       const folders: string[] = req.body.folders || config.folders || [];
 
       if (folders.length === 0) {
-        return res.status(400).json({ error: 'No folders specified for indexing' });
+        res.status(400).json({ error: 'No folders specified for indexing' });
+        return;
       }
 
       // Respond immediately
@@ -64,7 +66,7 @@ export class DocumentsController {
     }
   }
 
-  async getStatus(req: Request, res: Response) {
+  async getStatus(_req: Request, res: Response) {
     const status = indexingService.getStatus();
     const count = await inMemoryVectorStore.count();
 
@@ -81,7 +83,7 @@ export class DocumentsController {
     return this.indexFiles(req, res);
   }
 
-  async stopIndex(req: Request, res: Response) {
+  async stopIndex(_req: Request, res: Response) {
     indexingService.stopIndexing();
     res.json({
       success: true,
@@ -89,7 +91,7 @@ export class DocumentsController {
     });
   }
 
-  async clearIndex(req: Request, res: Response) {
+  async clearIndex(_req: Request, res: Response) {
     try {
       await inMemoryVectorStore.clear();
       await inMemoryVectorStore.save();
@@ -102,12 +104,13 @@ export class DocumentsController {
     }
   }
 
-  async searchFiles(req: Request, res: Response) {
+  async searchFiles(req: Request, res: Response): Promise<void> {
     try {
       const query = req.query.q as string;
 
       if (!query) {
-        return res.status(400).json({ error: 'Query parameter "q" is required' });
+        res.status(400).json({ error: 'Query parameter "q" is required' });
+        return;
       }
 
       // Use embeddings to search

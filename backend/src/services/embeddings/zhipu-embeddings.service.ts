@@ -43,7 +43,7 @@ export class ZhipuEmbeddingsService {
     // JWT 토큰 생성
     const token = jwt.sign(payload, secret, {
       algorithm: 'HS256',
-      header: { alg: 'HS256', sign_type: 'SIGN' }
+      header: { alg: 'HS256', sign_type: 'SIGN' } as any
     });
 
     // 토큰 캐시 (5분 전에 만료로 간주하여 갱신)

@@ -1,6 +1,7 @@
 import { commandRegistry } from './command-registry.service';
 import { indexingService } from '../indexing/indexing.service';
 import { documentProcessor } from '../document-processor/document-processor.service';
+import config from '../../config/app.config';
 import type { CommandResult } from '../../types';
 
 /**
@@ -75,7 +76,7 @@ commandRegistry.register({
   description: '모든 문서를 다시 인덱싱합니다.',
   handler: async () => {
     try {
-      await indexingService.startIndexing();
+      indexingService.indexFolders(config.folders);
       return {
         success: true,
         message: '인덱싱이 시작되었습니다.',
@@ -158,7 +159,7 @@ commandRegistry.register({
     const status = indexingService.getStatus();
     return {
       success: true,
-      message: `인덱싱 상태: ${status.isIndexing ? '진행 중' : '완료'} (${status.progress}%)`,
+      message: `인덱싱 상태: ${status.status === 'indexing' ? '진행 중' : '완료'} (${status.progress.current}/${status.progress.total})`,
       data: status,
     };
   },

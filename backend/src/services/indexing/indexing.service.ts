@@ -58,6 +58,10 @@ export class IndexingService {
         return;
       }
 
+      // 1.5. 기존 동일 파일의 청크 삭제 (중복 방지, 저장은 나중에)
+      await inMemoryVectorStore.deleteByFilePath(filePath, shouldSave);
+
+
       // 2. Parse
       const parser = ParserFactory.getParser(filePath);
       const text = await parser.parse(filePath);

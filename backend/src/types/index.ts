@@ -60,8 +60,8 @@ export interface Conversation {
   id: string;
   title: string;
   messages: Message[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 // LLM 응답 타입
@@ -86,6 +86,9 @@ export interface DocumentChunk {
     fileName: string;
     chunkIndex: number;
     fileType: string;
+    source?: string;     // filePath의 대체 필드 (호환성)
+    filename?: string;   // fileName의 대체 필드 (호환성)
+    [key: string]: any;  // 추가 메타데이터 허용
   };
 }
 
@@ -97,6 +100,9 @@ export interface VectorSearchResult {
     fileName: string;
     chunkIndex: number;
     fileType: string;
+    source?: string;
+    filename?: string;
+    [key: string]: any;
   };
   similarity: number;
 }

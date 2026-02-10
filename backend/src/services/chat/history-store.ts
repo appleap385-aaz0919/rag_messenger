@@ -44,19 +44,19 @@ export class ChatHistoryStore {
                 messages: [],
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
-            };
+            } as Conversation;
             this.conversations.set(conversationId, conversation);
         }
 
-        conversation.messages.push(message);
-        conversation.updatedAt = new Date().toISOString();
+        conversation!.messages.push(message);
+        conversation!.updatedAt = new Date().toISOString();
 
         await this.save();
     }
 
     async getHistory(): Promise<Conversation[]> {
         return Array.from(this.conversations.values()).sort(
-            (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+            (a, b) => new Date(String(b.updatedAt)).getTime() - new Date(String(a.updatedAt)).getTime()
         );
     }
 

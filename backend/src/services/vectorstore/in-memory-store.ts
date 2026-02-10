@@ -143,6 +143,73 @@ export class InMemoryVectorStore {
   }
 
   /**
+   * 키워드 기반 검색 (파일명/경로/내용에서 키워드 매칭, TF 기반)
+   */
+  searchByKeyword(keywords: string[], nResults: number = 5): VectorSearchResult[] {
+    if (!keywords.length) return [];
+
+    const results: Array<{ chunk: DocumentChunk; score: number }> = [];
+
+    // 키워드를 공백 제거 버전도 준비 (위키드 스톰 → 위키드스톰)
+    const joinedKeywords = keywords.join('').toLowerCase();
+    const kwLowerList = keywords.map(k => k.toLowerCase());
+
+    let maxScore = 0; // 정규화를 위한 최대 점수 추적
+
+    for (const doc of this.documents.values()) {
+      let score = 0;
+      const fileName = (doc.metadata.fileName || doc.metadata.filename || '').toLowerCase();
+      const filePath = (doc.metadata.filePath || doc.metadata.source || '').toLowerCase();
+      const content = doc.content.toLowerCase();
+      // 공백 제거 버전 (파일명/경로)
+      const fileNameNoSpace = fileName.replace(/\s+/g, '');
+      const filePathNoSpace = filePath.replace(/\s+/g, '');
+
+      for (const kw of kwLowerList) {
+        // 파일명 매칭 (가중치 5)
+        if (fileName.includes(kw)) {
+          score += 5;
+        }
+        // 파일 경로(폴더명) 매칭 (가중치 3)
+        else if (filePath.includes(kw)) {
+          score += 3;
+        }
+        // 콘텐츠 매칭 (TF 기반, 빈도 반영, 최대 가중치 3)
+        const contentMatches = content.split(kw).length - 1;
+        if (contentMatches > 0) {
+          score += Math.min(1 + Math.log2(contentMatches), 3); // log 기반 TF, 최대 3
+        }
+      }
+
+      // 키워드 결합 매칭 (공백 무시): "위키드 스톰" → "위키드스톰" 매칭
+      if (joinedKeywords.length >= 3) {
+        if (fileNameNoSpace.includes(joinedKeywords)) {
+          score += 7;
+        } else if (filePathNoSpace.includes(joinedKeywords)) {
+          score += 4;
+        }
+      }
+
+      if (score > 0) {
+        results.push({ chunk: doc, score });
+        if (score > maxScore) maxScore = score;
+      }
+    }
+
+    // 점수 순으로 정렬
+    results.sort((a, b) => b.score - a.score);
+
+    // 최대 점수 기반 정규화 (0-1 범위)
+    const normalizer = maxScore > 0 ? maxScore : 1;
+
+    return results.slice(0, nResults).map((r) => ({
+      content: r.chunk.content,
+      metadata: r.chunk.metadata,
+      similarity: r.score / normalizer,
+    }));
+  }
+
+  /**
    * 코사인 유사도 계산
    */
   private cosineSimilarity(a: number[], b: number[]): number {
@@ -179,13 +246,20 @@ export class InMemoryVectorStore {
   /**
    * 특정 파일의 문서 삭제
    */
-  async deleteByFilePath(filePath: string): Promise<void> {
+  async deleteByFilePath(filePath: string, shouldSave = true): Promise<void> {
+    let deleted = 0;
     for (const [id, doc] of this.documents.entries()) {
       if (doc.metadata.filePath === filePath) {
         this.documents.delete(id);
+        deleted++;
       }
     }
-    await this.save();
+    if (deleted > 0) {
+      console.log(`[InMemoryStore] Deleted ${deleted} chunks for: ${filePath.split(/[/\\]/).pop()}`);
+    }
+    if (shouldSave) {
+      await this.save();
+    }
   }
 }
 

@@ -1,38 +1,42 @@
 import chokidar from 'chokidar';
-import path from 'path';
 import { indexingService } from '../indexing/indexing.service';
 
 export class WatcherService {
-  private watcher: chokidar.FSWatcher | null = null;
+  private watcher: any = null;
   private watchedPaths: string[] = [];
 
   constructor() {
-    this.watcher = chokidar.watch([], {
-      persistent: true,
-      ignoreInitial: true,
-      ignored: [/(^|[\/\\])\../, '**/node_modules/**'], // hidden files and node_modules
-    });
+    try {
+      this.watcher = chokidar.watch([], {
+        persistent: true,
+        ignoreInitial: true,
+        ignored: [/(^|[\/\\])\.\./, '**/node_modules/**'],
+      });
 
-    this.setupListeners();
+      this.setupListeners();
+    } catch (e) {
+      console.warn('[Watcher] Failed to initialize chokidar:', e);
+    }
   }
 
   private setupListeners() {
     if (!this.watcher) return;
 
     this.watcher
-      .on('add', (filePath) => {
+      .on('add', (filePath: string) => {
         console.log(`File added: ${filePath}`);
         indexingService.indexFile(filePath);
       })
-      .on('change', (filePath) => {
+      .on('change', (filePath: string) => {
         console.log(`File changed: ${filePath}`);
-        indexingService.reindexFile(filePath);
+        // reindex = delete old + add new
+        indexingService.indexFile(filePath);
       })
-      .on('unlink', (filePath) => {
-        console.log(`File removed: ${filePath}`);
-        indexingService.removeFile(filePath);
+      .on('unlink', (_filePath: string) => {
+        console.log(`File removed: ${_filePath}`);
+        // Removal from vectorstore is handled at next reindex
       })
-      .on('error', (error) => {
+      .on('error', (error: Error) => {
         console.error(`Watcher error: ${error}`);
       });
   }

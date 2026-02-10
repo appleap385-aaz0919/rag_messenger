@@ -1,5 +1,4 @@
-import { ChromaClient, Collection, OpenAIEmbeddingFunction } from 'chromadb';
-import config from '../../config/app.config';
+import { ChromaClient, Collection } from 'chromadb';
 import { embeddingsService } from '../embeddings/embeddings.factory';
 
 export class ChromaService {

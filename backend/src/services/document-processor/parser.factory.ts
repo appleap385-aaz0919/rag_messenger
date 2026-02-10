@@ -1,6 +1,7 @@
 import { textParser } from './text.parser';
 import { pdfParser } from './pdf.parser';
 import { docxParser } from './docx.parser';
+import { xlsxParser } from './xlsx.parser';
 import path from 'path';
 
 export interface IFileParser {
@@ -8,27 +9,37 @@ export interface IFileParser {
 }
 
 export class ParserFactory {
+  private static readonly SUPPORTED_EXTENSIONS = [
+    '.txt', '.md', '.json', '.js', '.ts', '.xml', '.csv',
+    '.pdf', '.docx', '.doc', '.xlsx', '.xls'
+  ];
+
+  static isSupported(filePath: string): boolean {
+    const ext = path.extname(filePath).toLowerCase();
+    return this.SUPPORTED_EXTENSIONS.includes(ext);
+  }
+
   static getParser(filePath: string): IFileParser {
     const ext = path.extname(filePath).toLowerCase();
 
     switch (ext) {
       case '.txt':
       case '.md':
-      case '.json': // Temporarily treat JSON as text or add JsonParser later
+      case '.json':
       case '.js':
       case '.ts':
+      case '.xml':
+      case '.csv':
         return textParser;
       case '.pdf':
         return pdfParser;
       case '.docx':
       case '.doc':
         return docxParser;
-      // Add more parsers here
+      case '.xlsx':
+      case '.xls':
+        return xlsxParser;
       default:
-        // Default to text parser for code files or unknown text types, 
-        // or throw error. For now, let's try text parser if it looks text-like,
-        // otherwise throw.
-        // Let's stick to explicit support.
         throw new Error(`지원하지 않는 파일 형식입니다: ${ext}`);
     }
   }

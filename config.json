@@ -18,7 +18,7 @@
   },
   "embeddings": {
     "provider": "ollama",
-    "model": "nomic-embed-text:latest",
+    "model": "mxbai-embed-large:latest",
     "baseUrl": "http://localhost:11434"
   },
   "folders": [
@@ -30,8 +30,8 @@
     "D:\\jaehyuk.myung\\바탕 화면\\AI_AX_TF"
   ],
   "chunking": {
-    "chunkSize": 1000,
-    "chunkOverlap": 200
+    "chunkSize": 1500,
+    "chunkOverlap": 300
   },
   "fileWatcher": {
     "enabled": true,

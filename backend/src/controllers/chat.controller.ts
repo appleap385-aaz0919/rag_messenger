@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { ragPipelineService } from '../services/rag/rag-pipeline.service';
 import { chatHistoryStore } from '../services/chat/history-store';
 import { indexingService } from '../services/indexing/indexing.service';
+import { inMemoryVectorStore } from '../services/vectorstore/in-memory-store';
+import config from '../config/app.config';
 import { v4 as uuidv4 } from 'uuid';
 
 export class ChatController {
